@@ -381,6 +381,16 @@ input,select,textarea{font-family:inherit}
 .change-row strong{color:var(--text);font-weight:800}
 .modal-acts{display:flex;flex-direction:column;gap:9px}
 
+.cat2-list{margin-top:7px;display:flex;flex-direction:column;gap:3px}
+.cat2-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:3px 0 3px 8px;
+  border-left:2px solid var(--border);
+  gap:6px;
+}
+.cat2-row-name{font-size:12px;color:var(--text3);font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat2-row-amt{font-size:12px;font-weight:800;color:var(--text2);flex-shrink:0}
+
 /* ===== BUDGET ===== */
 .budget-bar-wrap{padding:0 2px 12px}
 .budget-bar-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
@@ -704,10 +714,10 @@ input,select,textarea{font-family:inherit}
 
 <script>
 // ════════════════════════════════════════
-//  CONFIG — 填入你的 Supabase 信息
+//  INIT (config loaded from config.json)
 // ════════════════════════════════════════
-const SUPABASE_URL = 'https://etshamwjrgssoyprqnqs.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV0c2hhbXdqcmdzc295cHJxbnFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMzA0OTYsImV4cCI6MjA4ODgwNjQ5Nn0.kVfTn0dy25PCrJHrtbkg4jNnv5mgTZBND-xOSmn5FQM';
+const { createClient } = supabase;
+let db;
 
 /*
  ═══════════════════════════════════════════════════
@@ -761,19 +771,13 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 */
 
 // ════════════════════════════════════════
-//  INIT
+//  CONSTANTS & STATE
 // ════════════════════════════════════════
-const { createClient } = supabase;
-const db = createClient(SUPABASE_URL, SUPABASE_KEY);
-
 const CAT1 = ['餐饮','购物','充值','其他'];
 const CAT_EMOJI = {'餐饮':'🍜','购物':'🛍️','充值':'💳','其他':'📦'};
 const CAT_COLOR = {'餐饮':'#ff6b6b','购物':'#51cf66','充值':'#339af0','其他':'#fcc419'};
 const CAT_BG    = {'餐饮':'#fff0f0','购物':'#ebfbee','充值':'#e7f5ff','其他':'#fff9db'};
 
-// ════════════════════════════════════════
-//  STATE
-// ════════════════════════════════════════
 let bills = [], cats = [], ccConfig = null;
 let budgetConfig = null, budgetHistory = [];
 let ovPeriod = 'month', ovDate = new Date();
@@ -1113,9 +1117,30 @@ function renderOverview(){
   if(!hasData){
     el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>暂无消费记录</p></div>';
   } else {
+    // Build cat2 totals per cat1
+    const ct2 = {};
+    CAT1.forEach(c=>{ ct2[c]={}; });
+    filtered.forEach(b=>{
+      const k = b.category2||'(未分类)';
+      if(!ct2[b.category1]) ct2[b.category1]={};
+      ct2[b.category1][k] = (ct2[b.category1][k]||0) + parseFloat(b.amount);
+    });
+
     CAT1.forEach(cat=>{
       if(ct[cat]===0) return;
       const pct = total>0?(ct[cat]/total*100):0;
+
+      // Sub-category rows html
+      const sub2 = ct2[cat]||{};
+      const sub2entries = Object.entries(sub2).sort((a,b)=>b[1]-a[1]);
+      const sub2html = sub2entries.length > 0
+        ? `<div class="cat2-list">${sub2entries.map(([name,amt])=>
+            `<div class="cat2-row">
+              <span class="cat2-row-name">${esc(name)}</span>
+              <span class="cat2-row-amt">${fmt(amt)}</span>
+            </div>`).join('')}</div>`
+        : '';
+
       const d = document.createElement('div');
       d.className = 'cat-item';
       d.innerHTML = `
@@ -1125,6 +1150,7 @@ function renderOverview(){
           <div class="cat-bar-bg">
             <div class="cat-bar-fill" style="width:${pct.toFixed(1)}%;background:${CAT_COLOR[cat]}"></div>
           </div>
+          ${sub2html}
         </div>
         <div class="cat-right">
           <div class="cat-amt">${fmt(ct[cat])}</div>
@@ -1842,6 +1868,15 @@ function rerender(){
 //  BOOTSTRAP
 // ════════════════════════════════════════
 async function init(){
+  // Load Supabase config from config.json
+  try{
+    const cfg = await fetch('./config.json').then(r=>r.json());
+    db = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_KEY);
+  } catch(e){
+    document.getElementById('loading-screen').innerHTML =
+      '<div style="padding:30px;text-align:center;color:#ff6b6b;font-weight:800;font-size:15px">⚠️ 无法读取 config.json<br><span style="font-size:13px;color:#a8b3c8;font-weight:600">请确认同目录下存在 config.json 并填写了 Supabase 信息</span></div>';
+    return;
+  }
   try{
     await loadAll();
     await checkMonthlyReset();
