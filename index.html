@@ -381,6 +381,45 @@ input,select,textarea{font-family:inherit}
 .change-row strong{color:var(--text);font-weight:800}
 .modal-acts{display:flex;flex-direction:column;gap:9px}
 
+/* ===== BUDGET ===== */
+.budget-bar-wrap{padding:0 2px 12px}
+.budget-bar-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.budget-bar-lbl{font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px}
+.budget-bar-pct{font-size:13px;font-weight:800;color:var(--text2)}
+.budget-track{height:13px;background:var(--bg);border-radius:7px;overflow:hidden;border:1.5px solid var(--border);display:flex}
+.budget-used{background:var(--danger);transition:width 0.5s ease;border-radius:6px 0 0 6px}
+.budget-used.full{border-radius:6px}
+.budget-rem{background:var(--success);transition:width 0.5s ease;border-radius:0 6px 6px 0}
+.budget-labels{display:flex;justify-content:space-between;margin-top:5px}
+.budget-lbl-used{font-size:11px;color:var(--danger);font-weight:700}
+.budget-lbl-rem{font-size:11px;color:var(--success);font-weight:700}
+.budget-alert{
+  background:#fff0f0;border:1.5px solid var(--danger);
+  color:#c0392b;border-radius:var(--rad-sm);
+  padding:11px 14px;font-size:13px;font-weight:800;
+  margin-bottom:12px;line-height:1.5;
+}
+.budget-warn{
+  background:#fffbe6;border:1.5px solid var(--warning);
+  border-radius:var(--rad-sm);
+  padding:12px 14px;margin-top:12px;
+  font-size:13px;color:#7d5a00;font-weight:700;line-height:1.65;
+}
+.binfo-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 0;border-bottom:1px solid var(--bg);
+}
+.binfo-row:last-child{border-bottom:none}
+.binfo-lbl{font-size:13px;color:var(--text2);font-weight:600}
+.binfo-val{font-size:14px;font-weight:800;text-align:right}
+.binfo-val.danger{color:var(--danger)}
+.binfo-val.success{color:var(--success)}
+.binfo-val.warn{color:#c8860a}
+.budget-set-row{display:flex;align-items:center;gap:8px}
+.budget-set-row input{flex:1}
+.budget-set-unit{font-size:13px;color:var(--text3);font-weight:700;white-space:nowrap;flex-shrink:0}
+.budget-cur{font-size:13px;color:var(--text3);font-weight:600;margin-top:9px;padding-top:9px;border-top:1px solid var(--bg)}
+
 /* ===== DIVIDER ===== */
 .divider{height:1px;background:var(--bg);margin:4px 0}
 
@@ -426,10 +465,27 @@ input,select,textarea{font-family:inherit}
       <div class="ov-total-lbl">总支出</div>
       <div class="ov-total-amt" id="ov-total">¥0.00</div>
     </div>
+    <!-- Budget bar -->
+    <div class="budget-bar-wrap" id="budget-bar-wrap" style="display:none">
+      <div class="budget-bar-top">
+        <span class="budget-bar-lbl">月预算进度</span>
+        <span class="budget-bar-pct" id="bbar-pct"></span>
+      </div>
+      <div class="budget-track">
+        <div class="budget-used" id="bbar-used"></div>
+        <div class="budget-rem"  id="bbar-rem"></div>
+      </div>
+      <div class="budget-labels">
+        <span class="budget-lbl-used" id="bbar-used-lbl"></span>
+        <span class="budget-lbl-rem"  id="bbar-rem-lbl"></span>
+      </div>
+    </div>
     <div class="chart-wrap">
       <canvas id="pie-chart"></canvas>
     </div>
   </div>
+  <!-- Budget over-limit alert -->
+  <div class="budget-alert" id="budget-alert" style="display:none"></div>
   <div class="card">
     <div class="card-title">分类明细</div>
     <div id="ov-cats"></div>
@@ -444,6 +500,15 @@ input,select,textarea{font-family:inherit}
 
 <!-- ══════════════ ENTRY ══════════════ -->
 <div class="tab-pane" id="tab-entry">
+  <div class="card">
+    <div class="card-title">💰 月预算设置</div>
+    <div class="budget-set-row">
+      <input type="number" class="form-input" id="budget-input" placeholder="0.00" inputmode="decimal" step="0.01" min="0">
+      <span class="budget-set-unit">元/月</span>
+      <button class="btn btn-primary btn-sm" style="flex-shrink:0" onclick="saveBudget()">保存</button>
+    </div>
+    <div class="budget-cur" id="budget-cur-info"></div>
+  </div>
   <div class="card">
     <div class="card-title">新增消费</div>
     <div class="form-group">
@@ -476,6 +541,7 @@ input,select,textarea{font-family:inherit}
       <input type="text" class="form-input" id="e-notes" placeholder="可选备注…">
     </div>
     <button class="btn btn-primary" onclick="submitEntry()">💰 记入账本</button>
+    <div class="budget-warn" id="entry-budget-warn" style="display:none"></div>
   </div>
 
   <div class="card">
@@ -515,6 +581,10 @@ input,select,textarea{font-family:inherit}
     </div>
   </div>
   <div id="det-list"></div>
+  <div class="card" id="det-budget-card" style="display:none">
+    <div class="card-title">💰 预算信息</div>
+    <div id="det-budget-content"></div>
+  </div>
 </div>
 
 <!-- ══════════════ CREDIT CARD ══════════════ -->
@@ -641,7 +711,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 /*
  ═══════════════════════════════════════════════════
-  Supabase 建表说明（三张表）
+  Supabase 建表说明（五张表）
  ═══════════════════════════════════════════════════
 
  【Table: bills】
@@ -668,7 +738,24 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
    last_billed_month text        nullable   (格式: YYYY-MM)
    created_at        timestamptz default now()
 
- 安全: 关闭 RLS 或为三张表都添加 Allow All 策略
+ 【Table: budget_config】（新增）
+   id                   uuid   PK, default gen_random_uuid()
+   monthly_budget       numeric NOT NULL, default 0
+   last_processed_month text    nullable   (格式: YYYY-MM)
+   created_at           timestamptz default now()
+
+ 【Table: budget_history】（新增）
+   id                uuid   PK, default gen_random_uuid()
+   year_month        text   NOT NULL, UNIQUE
+   monthly_budget    numeric NOT NULL, default 0
+   installment_amount numeric NOT NULL, default 0
+   other_expenses    numeric NOT NULL, default 0
+   dining_expenses   numeric NOT NULL, default 0
+   dining_budget     numeric NOT NULL, default 0
+   created_at        timestamptz default now()
+   注意：year_month 需加 UNIQUE 约束（Table Editor → 列设置 → Unique）
+
+ 安全: 关闭 RLS 或为五张表都添加 Allow All 策略
  Realtime: 在 Supabase → Database → Replication 中启用 bills 和 categories 表
  ═══════════════════════════════════════════════════
 */
@@ -688,6 +775,7 @@ const CAT_BG    = {'餐饮':'#fff0f0','购物':'#ebfbee','充值':'#e7f5ff','其
 //  STATE
 // ════════════════════════════════════════
 let bills = [], cats = [], ccConfig = null;
+let budgetConfig = null, budgetHistory = [];
 let ovPeriod = 'month', ovDate = new Date();
 let detMonth = new Date();
 let editingId = null, editOrig = null, pendingEdit = null;
@@ -733,7 +821,7 @@ function closeModal(id){ document.getElementById(id).classList.remove('show'); }
 //  DATA LOADING
 // ════════════════════════════════════════
 async function loadAll(){
-  await Promise.all([loadBills(), loadCats(), loadCC()]);
+  await Promise.all([loadBills(), loadCats(), loadCC(), loadBudgetConfig(), loadBudgetHistory()]);
 }
 
 async function loadBills(){
@@ -762,6 +850,113 @@ async function loadCC(){
     }).select().single();
     if(!e2) ccConfig = nd;
   }
+}
+
+async function loadBudgetConfig(){
+  const {data,error} = await db.from('budget_config').select('*').limit(1);
+  if(error){ console.error(error); return; }
+  if(data && data.length > 0){
+    budgetConfig = data[0];
+  } else {
+    const {data:nd,error:e2} = await db.from('budget_config').insert({
+      monthly_budget:0, last_processed_month:null
+    }).select().single();
+    if(!e2) budgetConfig = nd;
+  }
+}
+
+async function loadBudgetHistory(){
+  const {data,error} = await db.from('budget_history').select('*')
+    .order('year_month',{ascending:false});
+  if(error){ console.error(error); return; }
+  budgetHistory = data || [];
+}
+
+// ════════════════════════════════════════
+//  BUDGET LOGIC
+// ════════════════════════════════════════
+
+// Calculate live budget stats for the current month
+function calcBudget(){
+  if(!budgetConfig || !budgetConfig.monthly_budget || budgetConfig.monthly_budget <= 0) return null;
+  const now = new Date();
+  const curYM = toYM(now);
+  const today = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const mb = parseFloat(budgetConfig.monthly_budget);
+  const installAmt = ccConfig?.monthly_amount ? parseFloat(ccConfig.monthly_amount) : 0;
+
+  const curBills = bills.filter(b => b.status==='regular' && b.date.startsWith(curYM));
+  const totalExpenses   = curBills.reduce((s,b)=>s+parseFloat(b.amount),0);
+  const diningExpenses  = curBills.filter(b=>b.category1==='餐饮').reduce((s,b)=>s+parseFloat(b.amount),0);
+  const nonDiningExpenses = curBills.filter(b=>b.category1!=='餐饮').reduce((s,b)=>s+parseFloat(b.amount),0);
+
+  // Remaining budget after installment + non-dining (floor 0)
+  const totalDiningBudget = Math.max(0, mb - installAmt - nonDiningExpenses);
+  // Proportional dining budget up to today
+  const diningBudgetToday = totalDiningBudget / daysInMonth * today;
+  const remainingDiningBudget = totalDiningBudget - diningExpenses;
+  const remainingDays = daysInMonth - today;
+  const dailyRemainingDining = remainingDays > 0 ? remainingDiningBudget / remainingDays : 0;
+
+  // effectiveUsed = installment (committed on 1st) + all actual bills
+  const effectiveUsed = installAmt + totalExpenses;
+  return {
+    mb, installAmt, totalExpenses, diningExpenses, nonDiningExpenses,
+    effectiveUsed,
+    totalDiningBudget, diningBudgetToday, remainingDiningBudget,
+    dailyRemainingDining, daysInMonth, today, remainingDays,
+    diningOverAmount: diningExpenses - diningBudgetToday,
+    totalOverAmount: effectiveUsed - mb,
+    isTotalOver: effectiveUsed >= mb,
+    isDiningOver: diningExpenses > diningBudgetToday,
+    isHistorical: false
+  };
+}
+
+// Save month stats to budget_history
+async function saveMonthStats(ym){
+  if(!budgetConfig || !budgetConfig.monthly_budget) return;
+  const mb = parseFloat(budgetConfig.monthly_budget);
+  const installAmt = ccConfig?.monthly_amount ? parseFloat(ccConfig.monthly_amount) : 0;
+  const monthBills = bills.filter(b=>b.status==='regular' && b.date.startsWith(ym));
+  const nonDining = monthBills.filter(b=>b.category1!=='餐饮').reduce((s,b)=>s+parseFloat(b.amount),0);
+  const dining    = monthBills.filter(b=>b.category1==='餐饮').reduce((s,b)=>s+parseFloat(b.amount),0);
+  const diningBudget = Math.max(0, mb - installAmt - nonDining);
+  const payload = {
+    year_month:ym, monthly_budget:mb, installment_amount:installAmt,
+    other_expenses:nonDining, dining_expenses:dining, dining_budget:diningBudget
+  };
+  const exists = budgetHistory.find(h=>h.year_month===ym);
+  if(exists){
+    await db.from('budget_history').update(payload).eq('year_month',ym);
+  } else {
+    await db.from('budget_history').insert(payload);
+  }
+}
+
+// Check if month-start processing is needed (runs on each app open)
+async function checkMonthlyReset(){
+  if(!budgetConfig) return;
+  const curYM = toYM(new Date());
+  if(budgetConfig.last_processed_month === curYM) return;
+
+  const prev = budgetConfig.last_processed_month;
+  if(prev && prev < curYM){
+    // Save stats for all months between prev+1 and curYM-1
+    let d = new Date(prev+'-01T00:00:00');
+    d.setMonth(d.getMonth()+1);
+    while(toYM(d) < curYM){
+      await saveMonthStats(toYM(d));
+      d.setMonth(d.getMonth()+1);
+    }
+    await loadBudgetHistory();
+    toast('📊 已重置本月预算，上月记录已保存');
+  } else if(!prev){
+    toast('📊 预算已启动，请在记入页设置月预算');
+  }
+  await db.from('budget_config').update({last_processed_month:curYM}).eq('id',budgetConfig.id);
+  budgetConfig.last_processed_month = curYM;
 }
 
 // ════════════════════════════════════════
@@ -947,6 +1142,69 @@ function renderOverview(){
     barCard.style.display = 'block';
     renderBar(filtered);
   }
+
+  // Budget bar (month view only)
+  renderBudgetBar();
+}
+
+function renderBudgetBar(){
+  const wrap  = document.getElementById('budget-bar-wrap');
+  const alert = document.getElementById('budget-alert');
+  alert.style.display = 'none';
+  wrap.style.display  = 'none';
+
+  if(ovPeriod !== 'month') return;
+
+  // Determine which month we're viewing
+  const viewYM = toYM(ovDate);
+  const curYM  = toYM(new Date());
+  let stats = null;
+
+  if(viewYM === curYM){
+    stats = calcBudget();
+  } else {
+    const hist = budgetHistory.find(h=>h.year_month===viewYM);
+    if(hist){
+      const totalExp = parseFloat(hist.dining_expenses) + parseFloat(hist.other_expenses);
+      stats = {
+        mb: parseFloat(hist.monthly_budget),
+        totalExpenses: totalExp,
+        diningExpenses: parseFloat(hist.dining_expenses),
+        nonDiningExpenses: parseFloat(hist.other_expenses),
+        totalDiningBudget: parseFloat(hist.dining_budget),
+        diningBudgetToday: parseFloat(hist.dining_budget),
+        remainingDiningBudget: parseFloat(hist.dining_budget)-parseFloat(hist.dining_expenses),
+        diningOverAmount: parseFloat(hist.dining_expenses)-parseFloat(hist.dining_budget),
+        totalOverAmount: totalExp - parseFloat(hist.monthly_budget),
+        isTotalOver: totalExp >= parseFloat(hist.monthly_budget),
+        isDiningOver: parseFloat(hist.dining_expenses) > parseFloat(hist.dining_budget),
+        isHistorical: true
+      };
+    }
+  }
+
+  if(!stats || stats.mb <= 0) return;
+
+  const usedAmt = stats.isHistorical ? stats.totalExpenses : stats.effectiveUsed;
+  const usedPct = Math.min(100, usedAmt / stats.mb * 100);
+  const remPct  = Math.max(0, 100 - usedPct);
+
+  wrap.style.display = 'block';
+  document.getElementById('bbar-pct').textContent = usedPct.toFixed(1)+'%';
+  const usedEl = document.getElementById('bbar-used');
+  const remEl  = document.getElementById('bbar-rem');
+  usedEl.style.width = usedPct+'%';
+  usedEl.classList.toggle('full', remPct===0);
+  remEl.style.width = remPct+'%';
+  document.getElementById('bbar-used-lbl').textContent = `已用 ${fmt(usedAmt)}`;
+  document.getElementById('bbar-rem-lbl').textContent  = stats.isTotalOver
+    ? `超出 ${fmt(Math.abs(stats.totalOverAmount))}`
+    : `剩余 ${fmt(stats.mb - usedAmt)}`;
+
+  if(stats.isTotalOver){
+    alert.style.display = 'block';
+    alert.textContent = `⚠️ 本月预算已全部用完！合计超出 ${fmt(Math.abs(stats.totalOverAmount))}`;
+  }
 }
 
 function renderPie(ct, total){
@@ -1015,6 +1273,21 @@ function renderEntry(){
   document.getElementById('e-date').value = todayStr();
   updateE2();
   updateMgmt();
+  // Populate budget setting
+  if(budgetConfig && budgetConfig.monthly_budget > 0){
+    document.getElementById('budget-input').value = budgetConfig.monthly_budget;
+    const stats = calcBudget();
+    if(stats){
+      const now = new Date();
+      const daysInMonth = stats.daysInMonth;
+      const installAmt  = stats.installAmt;
+      document.getElementById('budget-cur-info').textContent =
+        `当前：${fmt(stats.mb)}/月　分期：${fmt(installAmt)}　餐饮日均预算约 ${fmt(stats.totalDiningBudget/daysInMonth)}`;
+    }
+  } else {
+    document.getElementById('budget-input').value = '';
+    document.getElementById('budget-cur-info').textContent = '尚未设置月预算';
+  }
 }
 
 function syncCat1(){
@@ -1086,8 +1359,50 @@ async function submitEntry(){
     await insertBill({ date, category1:cat1, category2:cat2||null, amount, notes:notes||null, status:'regular' });
     document.getElementById('e-amount').value = '';
     document.getElementById('e-notes').value = '';
-    toast('✅ 记入成功！');
+
+    // Budget check (only for current-month entries)
+    const curYM = toYM(new Date());
+    const warnEl = document.getElementById('entry-budget-warn');
+    warnEl.style.display = 'none';
+    if(date.startsWith(curYM)){
+      const stats = calcBudget();
+      if(stats && stats.mb > 0){
+        if(stats.isTotalOver){
+          // Total budget over — show on overview, no per-entry warn
+          toast('✅ 已记入');
+        } else if(stats.isDiningOver){
+          const daily = stats.dailyRemainingDining;
+          const dailyStr = daily >= 0
+            ? `每日可用 ${fmt(daily)}`
+            : `每日已超 ${fmt(Math.abs(daily))}`;
+          warnEl.innerHTML =
+            `⚠️ 餐饮预算已超标！<br>` +
+            `截至今日已超出 <strong>${fmt(stats.diningOverAmount)}</strong><br>` +
+            `本月剩余 ${stats.remainingDays} 天，${dailyStr}`;
+          warnEl.style.display = 'block';
+        } else {
+          toast('✅ 记入成功！');
+        }
+        // Refresh overview bar if visible
+        if(curTab==='entry') renderBudgetBar();
+      } else {
+        toast('✅ 记入成功！');
+      }
+    } else {
+      toast('✅ 记入成功！');
+    }
   } catch(e){ toast('记入失败：'+e.message); }
+}
+
+async function saveBudget(){
+  const val = parseFloat(document.getElementById('budget-input').value);
+  if(isNaN(val)||val<0){ toast('请输入有效金额'); return; }
+  try{
+    await db.from('budget_config').update({monthly_budget:val}).eq('id',budgetConfig.id);
+    budgetConfig.monthly_budget = val;
+    renderEntry();
+    toast('✅ 月预算已保存');
+  } catch(e){ toast('保存失败'); }
 }
 
 // ════════════════════════════════════════
@@ -1097,6 +1412,9 @@ function renderDetails(){
   document.getElementById('det-label').textContent = fmtMonth(detMonth);
   document.getElementById('j-year').value = detMonth.getFullYear();
   document.getElementById('j-month').value = detMonth.getMonth()+1;
+
+  // Render budget card for this month
+  renderDetBudget();
 
   const yr = detMonth.getFullYear(), mo = detMonth.getMonth();
   const mbills = bills.filter(b=>{
@@ -1143,6 +1461,79 @@ function renderDetails(){
     });
     container.appendChild(card);
   });
+}
+
+function renderDetBudget(){
+  const card    = document.getElementById('det-budget-card');
+  const content = document.getElementById('det-budget-content');
+  const viewYM  = toYM(detMonth);
+  const curYM   = toYM(new Date());
+
+  let stats = null;
+  if(viewYM === curYM){
+    stats = calcBudget();
+  } else {
+    const hist = budgetHistory.find(h=>h.year_month===viewYM);
+    if(hist){
+      const totalExp = parseFloat(hist.dining_expenses)+parseFloat(hist.other_expenses);
+      const instAmt  = parseFloat(hist.installment_amount);
+      const effUsed  = instAmt + totalExp;
+      stats = {
+        mb: parseFloat(hist.monthly_budget),
+        installAmt: instAmt,
+        totalExpenses: totalExp,
+        effectiveUsed: effUsed,
+        diningExpenses: parseFloat(hist.dining_expenses),
+        nonDiningExpenses: parseFloat(hist.other_expenses),
+        totalDiningBudget: parseFloat(hist.dining_budget),
+        diningBudgetToday: parseFloat(hist.dining_budget),
+        remainingDiningBudget: parseFloat(hist.dining_budget)-parseFloat(hist.dining_expenses),
+        isTotalOver: effUsed >= parseFloat(hist.monthly_budget),
+        isDiningOver: parseFloat(hist.dining_expenses) > parseFloat(hist.dining_budget),
+        totalOverAmount: effUsed - parseFloat(hist.monthly_budget),
+        isHistorical: true
+      };
+    }
+  }
+
+  if(!stats || stats.mb <= 0){
+    card.style.display = 'none'; return;
+  }
+  card.style.display = 'block';
+
+  const now = new Date();
+  const isCur = viewYM === curYM;
+  const todayDay = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const diningDiff = stats.diningExpenses - stats.diningBudgetToday;
+  const totalDiff  = stats.totalExpenses  - stats.mb;
+
+  const row = (lbl, val, cls='') =>
+    `<div class="binfo-row"><span class="binfo-lbl">${lbl}</span><span class="binfo-val ${cls}">${val}</span></div>`;
+
+  let html = row('月预算', fmt(stats.mb));
+  html += row('信用卡分期（已承诺）', fmt(stats.installAmt), 'warn');
+  html += row('餐饮外消费', fmt(stats.nonDiningExpenses));
+  if(isCur){
+    html += row(`餐饮预算（截至${todayDay}日/${daysInMonth}日）`, fmt(stats.diningBudgetToday), 'success');
+  } else {
+    html += row('全月餐饮预算', fmt(stats.totalDiningBudget), 'success');
+  }
+  html += row('实际餐饮消费', fmt(stats.diningExpenses), stats.isDiningOver?'danger':'');
+  html += row(stats.isDiningOver?'餐饮超出':'餐饮节余',
+    (stats.isDiningOver ? '超出 ' : '节余 ') + fmt(Math.abs(diningDiff)),
+    stats.isDiningOver?'danger':'success');
+  const effUsed = stats.effectiveUsed;
+  html += row('实际消费 + 分期', fmt(effUsed));
+  html += row(stats.isTotalOver?'总预算超出':'总预算节余',
+    (stats.isTotalOver ? '超出 ' : '节余 ') + fmt(Math.abs(stats.totalOverAmount)),
+    stats.isTotalOver?'danger':'success');
+  if(isCur && stats.remainingDays > 0){
+    html += row(`剩余${stats.remainingDays}天餐饮日均`,
+      fmt(stats.remainingDiningBudget / stats.remainingDays),
+      stats.remainingDiningBudget < 0 ? 'danger' : '');
+  }
+  content.innerHTML = html;
 }
 
 function makeBillRow(bill){
@@ -1453,6 +1844,7 @@ function rerender(){
 async function init(){
   try{
     await loadAll();
+    await checkMonthlyReset();
     await checkAutoInstallment();
     setupRealtime();
   } catch(e){ console.error('Init error:',e); }
