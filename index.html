@@ -1039,13 +1039,30 @@ async function loadCalibrations(){
   calibrations = data||[];
 }
 
-function getLatestCalibDate(){
-  return calibrations.length ? calibrations[0].calibration_date : null;
+// 根据校准记录的 created_at（UTC），换算北京时间（UTC+8）
+// 北京时间 08:00 之前校准 → 当天账单参与扣减（effectiveFrom = calibration_date）
+// 北京时间 08:00 及之后校准 → 次日起才扣减（effectiveFrom = calibration_date + 1天）
+function getCalibEffectiveFrom(){
+  if(!calibrations.length) return null;
+  const c = calibrations[0];
+  // created_at 是 UTC timestamptz，转北京时间
+  const utcMs  = new Date(c.created_at).getTime();
+  const bjDate = new Date(utcMs + 8*60*60*1000); // +8h
+  const bjHour = bjDate.getUTCHours(); // 在偏移后的 UTC 等同于北京时
+  if(bjHour < 8){
+    // 08:00 前校准：当天（calibration_date）就生效
+    return c.calibration_date;
+  } else {
+    // 08:00 后校准：次日起生效
+    const next = new Date(c.calibration_date + 'T00:00:00');
+    next.setDate(next.getDate() + 1);
+    return next.toISOString().split('T')[0];
+  }
 }
 
 function isAfterCalib(dateStr){
-  const cd = getLatestCalibDate();
-  return cd ? dateStr > cd : false;
+  const from = getCalibEffectiveFrom();
+  return from ? dateStr >= from : false;
 }
 
 async function adjustBalance(balanceId, delta){
@@ -2210,17 +2227,38 @@ function renderCalibRecords(){
     return;
   }
   el.innerHTML='';
-  calibrations.forEach(c=>{
+  calibrations.forEach((c, idx)=>{
     let snaps = [];
     try{ snaps = JSON.parse(c.snapshots); } catch(e){}
+
+    // Compute Beijing time and effective-from for this record
+    const utcMs  = new Date(c.created_at).getTime();
+    const bjDate = new Date(utcMs + 8*60*60*1000);
+    const bjH    = bjDate.getUTCHours();
+    const bjM    = bjDate.getUTCMinutes();
+    const bjTimeStr = `${String(bjH).padStart(2,'0')}:${String(bjM).padStart(2,'0')}`;
+    let effectiveFrom;
+    if(bjH < 8){
+      effectiveFrom = c.calibration_date;
+    } else {
+      const next = new Date(c.calibration_date+'T00:00:00');
+      next.setDate(next.getDate()+1);
+      effectiveFrom = next.toISOString().split('T')[0];
+    }
+    const isLatest = idx === 0;
+    const effLabel = isLatest
+      ? `<span style="color:var(--primary);font-weight:700">${effectiveFrom} 起生效中</span>`
+      : `<span style="color:var(--text3)">${effectiveFrom} 起生效（已被覆盖）</span>`;
+
     const div = document.createElement('div');
     div.className = 'calib-rec';
     div.innerHTML = `
       <div class="calib-rec-hd" onclick="toggleCalibRec('${c.id}')">
-        <span class="calib-rec-date">📅 ${c.calibration_date}</span>
+        <span class="calib-rec-date">📅 ${c.calibration_date} <span style="font-size:12px;color:var(--text3);font-weight:600">北京时间 ${bjTimeStr}</span></span>
         <span class="calib-toggle" id="ctog-${c.id}">展开</span>
       </div>
       <div class="calib-rec-body" id="cbody-${c.id}">
+        <div style="font-size:12px;margin-bottom:8px;padding:5px 8px;background:var(--bg);border-radius:7px">${effLabel}</div>
         ${snaps.map(s=>`
           <div class="calib-snap">
             <span class="calib-snap-lbl">${esc(s.name)}</span>
