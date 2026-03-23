@@ -645,6 +645,11 @@ input,select,textarea{font-family:inherit}
       <span>月</span>
       <button class="btn btn-outline btn-sm" onclick="jumpMonth()">跳转</button>
     </div>
+    <div style="margin-top:10px">
+      <div class="sel-wrap">
+        <select class="form-select" id="det-filter-sel" onchange="onDetFilterChange()" style="padding:9px 12px;font-size:14px"></select>
+      </div>
+    </div>
   </div>
   <div id="det-list"></div>
   <div class="card" id="det-budget-card" style="display:none">
@@ -923,6 +928,7 @@ let budgetConfig = null, budgetHistory = [];
 let balances = [], calibrations = [];
 let ovPeriod = 'month', ovDate = new Date();
 let detMonth = new Date();
+let detFilter = {cat1:'', cat2:''}; // '' = 全部
 let editingId = null, editOrig = null, pendingEdit = null;
 let deletingId = null;
 let pieInst = null, barInst = null;
@@ -1247,6 +1253,13 @@ async function deleteCatRecord(id){
   await loadCats();
 }
 
+function jumpToDetailFilter(cat1, cat2){
+  // Jump to details tab, navigate to the month shown in overview, apply filter
+  detMonth = new Date(ovDate.getFullYear(), ovDate.getMonth(), 1);
+  detFilter = {cat1, cat2: cat2||''};
+  switchTab('details');
+}
+
 // ════════════════════════════════════════
 //  TAB SWITCHING
 // ════════════════════════════════════════
@@ -1351,7 +1364,7 @@ function renderOverview(){
       const sub2html = sub2entries.length > 0
         ? `<div class="cat2-list">${sub2entries.map(([name,amt])=>
             `<div class="cat2-row">
-              <span class="cat2-row-name">${esc(name)}</span>
+              <span class="cat2-row-name" style="cursor:pointer" onclick="jumpToDetailFilter('${esc(cat)}','${esc(name)}')">${esc(name)}</span>
               <span class="cat2-row-amt">${fmt(amt)}</span>
             </div>`).join('')}</div>`
         : '';
@@ -1361,7 +1374,7 @@ function renderOverview(){
       d.innerHTML = `
         <div class="cat-swatch" style="background:${CAT_BG[cat]}">${CAT_EMOJI[cat]}</div>
         <div class="cat-info">
-          <div class="cat-name">${cat}</div>
+          <div class="cat-name" style="cursor:pointer" onclick="jumpToDetailFilter('${esc(cat)}','')">${cat}</div>
           <div class="cat-bar-bg">
             <div class="cat-bar-fill" style="width:${pct.toFixed(1)}%;background:${CAT_COLOR[cat]}"></div>
           </div>
@@ -1662,20 +1675,71 @@ async function saveBudget(){
 // ════════════════════════════════════════
 //  DETAILS TAB
 // ════════════════════════════════════════
+function buildFilterOptions(){
+  // Build options from all bills: all cat1 and cat2 values
+  const sel = document.getElementById('det-filter-sel');
+  if(!sel) return;
+  const curVal = detFilter.cat2
+    ? `cat2:${detFilter.cat1}:${detFilter.cat2}`
+    : detFilter.cat1 ? `cat1:${detFilter.cat1}` : '';
+  sel.innerHTML = '<option value="">全部分类</option>';
+  // Collect cat2 per cat1 from ALL bills (not just current month, for consistent options)
+  const tree = {};
+  bills.filter(b=>b.status==='regular').forEach(b=>{
+    if(!tree[b.category1]) tree[b.category1]=new Set();
+    if(b.category2) tree[b.category1].add(b.category2);
+  });
+  CAT1.forEach(c1=>{
+    if(!tree[c1]) return;
+    const og = document.createElement('option');
+    og.value = `cat1:${c1}`; og.textContent = `${CAT_EMOJI[c1]} ${c1}`;
+    if(`cat1:${c1}`===curVal) og.selected=true;
+    sel.appendChild(og);
+    const sub2 = Array.from(tree[c1]).sort();
+    sub2.forEach(c2=>{
+      const o = document.createElement('option');
+      o.value = `cat2:${c1}:${c2}`; o.textContent = `　↳ ${c2}`;
+      if(`cat2:${c1}:${c2}`===curVal) o.selected=true;
+      sel.appendChild(o);
+    });
+  });
+}
+
+function onDetFilterChange(){
+  const val = document.getElementById('det-filter-sel').value;
+  if(!val){ detFilter={cat1:'',cat2:''}; }
+  else if(val.startsWith('cat2:')){
+    const parts = val.split(':');
+    detFilter={cat1:parts[1], cat2:parts[2]};
+  } else {
+    detFilter={cat1:val.replace('cat1:',''), cat2:''};
+  }
+  renderDetails();
+}
+
 function renderDetails(){
   document.getElementById('det-label').textContent = fmtMonth(detMonth);
   document.getElementById('j-year').value = detMonth.getFullYear();
   document.getElementById('j-month').value = detMonth.getMonth()+1;
 
+  buildFilterOptions();
+
   // Render budget card for this month
   renderDetBudget();
 
   const yr = detMonth.getFullYear(), mo = detMonth.getMonth();
-  const mbills = bills.filter(b=>{
+  let mbills = bills.filter(b=>{
     if(b.status!=='regular') return false;
     const d = new Date(b.date+'T00:00:00');
     return d.getFullYear()===yr && d.getMonth()===mo;
   });
+
+  // Apply filter
+  if(detFilter.cat2){
+    mbills = mbills.filter(b=>b.category1===detFilter.cat1 && b.category2===detFilter.cat2);
+  } else if(detFilter.cat1){
+    mbills = mbills.filter(b=>b.category1===detFilter.cat1);
+  }
 
   // Sort: date desc, then cat1, cat2
   mbills.sort((a,b)=>{
@@ -1694,7 +1758,8 @@ function renderDetails(){
   if(mbills.length===0){
     const empty = document.createElement('div');
     empty.className = 'card';
-    empty.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>本月暂无消费记录</p></div>';
+    const emptyMsg = (detFilter.cat1||detFilter.cat2) ? '该分类本月暂无消费记录' : '本月暂无消费记录';
+    empty.innerHTML = `<div class="empty"><div class="empty-icon">📭</div><p>${emptyMsg}</p></div>`;
     container.appendChild(empty);
     return;
   }
@@ -2455,6 +2520,7 @@ async function init(){
 
   ovDate = new Date();
   detMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  detFilter = {cat1:'', cat2:''};
   setPeriod('month');
   renderOverview();
 }
