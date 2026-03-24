@@ -479,6 +479,37 @@ input,select,textarea{font-family:inherit}
   background:var(--primary-light);color:var(--primary);
 }
 .bal-source-tag.pending{background:#fff3cd;color:#856404}
+/* Bank badge */
+.bank-badge{
+  width:36px;height:36px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:900;flex-shrink:0;
+  color:white;letter-spacing:0;
+}
+/* Booked toggle */
+.booked-toggle{display:flex;gap:0;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:0}
+.booked-btn{
+  flex:1;border:none;padding:10px 6px;font-size:13px;font-weight:700;
+  background:var(--bg);color:var(--text3);cursor:pointer;transition:all 0.15s;
+}
+.booked-btn.active{background:var(--primary);color:white}
+/* Unbooked section */
+.unbooked-card{
+  background:#fffbe6;border:1.5px solid var(--warning);
+  border-radius:var(--rad);padding:14px;margin-bottom:12px;
+}
+.unbooked-title{
+  font-size:12px;font-weight:800;color:#92600a;
+  text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;
+}
+.unbooked-item{
+  display:flex;align-items:center;
+  padding:9px 0;border-bottom:1px solid rgba(252,196,25,0.3);gap:8px;
+}
+.unbooked-item:last-child{border-bottom:none}
+.unbooked-info{flex:1;min-width:0}
+.unbooked-cat{font-size:14px;font-weight:700;color:var(--text2)}
+.unbooked-meta{font-size:12px;color:var(--text3);margin-top:2px}
 
 /* ===== DIVIDER ===== */
 .divider{height:1px;background:var(--bg);margin:4px 0}
@@ -606,6 +637,13 @@ input,select,textarea{font-family:inherit}
         <select class="form-select" id="e-source"></select>
       </div>
     </div>
+    <div class="form-group" id="e-booked-group">
+      <label class="form-lbl">入账状态</label>
+      <div class="booked-toggle">
+        <button class="booked-btn active" id="btn-booked" onclick="setBooked(true)">✅ 已入账</button>
+        <button class="booked-btn" id="btn-unbooked" onclick="setBooked(false)">⏳ 未入账</button>
+      </div>
+    </div>
     <button class="btn btn-primary" onclick="submitEntry()">💰 记入账本</button>
     <div class="budget-warn" id="entry-budget-warn" style="display:none"></div>
   </div>
@@ -651,6 +689,7 @@ input,select,textarea{font-family:inherit}
       </div>
     </div>
   </div>
+  <div id="det-unbooked"></div>
   <div id="det-list"></div>
   <div class="card" id="det-budget-card" style="display:none">
     <div class="card-title">💰 预算信息</div>
@@ -835,6 +874,24 @@ input,select,textarea{font-family:inherit}
     <div class="modal-acts">
       <button class="btn btn-success" onclick="doPayment()">确认还款</button>
       <button class="btn btn-secondary" onclick="closeModal('modal-pay')">取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-book">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✅ 确认入账</div>
+    <div class="modal-body" id="modal-book-body"></div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label class="form-lbl">支付来源 <span class="opt">(不选为待定)</span></label>
+      <div class="sel-wrap">
+        <select class="form-select" id="book-source-sel"></select>
+      </div>
+    </div>
+    <div class="modal-acts">
+      <button class="btn btn-primary" onclick="doBook()">确认入账</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-book')">取消</button>
     </div>
   </div>
 </div>
@@ -1523,8 +1580,20 @@ function renderBar(filtered){
 // ════════════════════════════════════════
 //  ENTRY TAB
 // ════════════════════════════════════════
+function setBooked(val){
+  isBooked = val;
+  document.getElementById('btn-booked').classList.toggle('active', val);
+  document.getElementById('btn-unbooked').classList.toggle('active', !val);
+  // Hide source when unbooked (source is always 待定)
+  document.getElementById('e-source').parentElement.parentElement.style.display = val ? '' : 'none';
+}
+
 function renderEntry(){
   document.getElementById('e-date').value = todayStr();
+  isBooked = true;
+  document.getElementById('btn-booked').classList.add('active');
+  document.getElementById('btn-unbooked').classList.remove('active');
+  document.getElementById('e-source').parentElement.parentElement.style.display = '';
   updateE2();
   updateMgmt();
   fillSourceSelect('e-source', '');
@@ -1533,7 +1602,6 @@ function renderEntry(){
     document.getElementById('budget-input').value = budgetConfig.monthly_budget;
     const stats = calcBudget();
     if(stats){
-      const now = new Date();
       const daysInMonth = stats.daysInMonth;
       const installAmt  = stats.installAmt;
       document.getElementById('budget-cur-info').textContent =
@@ -1608,11 +1676,24 @@ async function submitEntry(){
   const cat2   = document.getElementById('e-cat2').value;
   const amount = parseFloat(document.getElementById('e-amount').value);
   const notes  = document.getElementById('e-notes').value.trim();
-  const srcId  = document.getElementById('e-source').value;
+  const srcId  = isBooked ? document.getElementById('e-source').value : '';
   if(!date){ toast('请选择日期'); return; }
   if(isNaN(amount)||amount<=0){ toast('请输入有效金额'); return; }
 
-  // Determine final source
+  // ── 未入账：直接存 unbooked，不扣余额 ──
+  if(!isBooked){
+    try{
+      await insertBill({date, category1:cat1, category2:cat2||null, amount,
+        notes:notes||null, status:'unbooked', source_id:null, source_name:null});
+      document.getElementById('e-amount').value='';
+      document.getElementById('e-notes').value='';
+      toast('⏳ 已记入，待入账');
+      if(curTab==='details') renderDetails();
+    } catch(e){ toast('记入失败：'+e.message); }
+    return;
+  }
+
+  // ── 已入账：原逻辑 ──
   let finalSrcId = srcId||null, finalSrcName = null, balWarn = false;
   if(finalSrcId){
     const bal = balances.find(b=>b.id===finalSrcId);
@@ -1634,16 +1715,16 @@ async function submitEntry(){
       if(curTab==='balance') renderBalance();
     }
 
-    document.getElementById('e-amount').value = '';
-    document.getElementById('e-notes').value  = '';
-    document.getElementById('e-source').value = '';
+    document.getElementById('e-amount').value='';
+    document.getElementById('e-notes').value='';
+    document.getElementById('e-source').value='';
 
     if(balWarn){
       toast('⚠️ 余额不足，来源已设为待定，请检查录入', 3500);
     } else {
       const curYM = toYM(new Date());
       const warnEl = document.getElementById('entry-budget-warn');
-      warnEl.style.display = 'none';
+      warnEl.style.display='none';
       if(date.startsWith(curYM)){
         const stats = calcBudget();
         if(stats && stats.mb > 0){
@@ -1651,8 +1732,8 @@ async function submitEntry(){
           else if(stats.isDiningOver){
             const daily = stats.dailyRemainingDining;
             const dailyStr = daily>=0 ? `每日可用 ${fmt(daily)}` : `每日已超 ${fmt(Math.abs(daily))}`;
-            warnEl.innerHTML = `⚠️ 餐饮预算已超标！<br>截至今日已超出 <strong>${fmt(stats.diningOverAmount)}</strong><br>本月剩余 ${stats.remainingDays} 天，${dailyStr}`;
-            warnEl.style.display = 'block';
+            warnEl.innerHTML=`⚠️ 餐饮预算已超标！<br>截至今日已超出 <strong>${fmt(stats.diningOverAmount)}</strong><br>本月剩余 ${stats.remainingDays} 天，${dailyStr}`;
+            warnEl.style.display='block';
           } else { toast('✅ 记入成功！'); }
           if(curTab==='entry') renderBudgetBar();
         } else { toast('✅ 记入成功！'); }
@@ -1726,6 +1807,9 @@ function renderDetails(){
 
   // Render budget card for this month
   renderDetBudget();
+
+  // Render unbooked section (always shown regardless of month filter)
+  renderUnbooked();
 
   const yr = detMonth.getFullYear(), mo = detMonth.getMonth();
   let mbills = bills.filter(b=>{
@@ -1855,6 +1939,84 @@ function renderDetBudget(){
   content.innerHTML = html;
 }
 
+function renderUnbooked(){
+  const el = document.getElementById('det-unbooked');
+  const unbooked = bills.filter(b=>b.status==='unbooked');
+  if(unbooked.length===0){ el.innerHTML=''; return; }
+
+  unbooked.sort((a,b)=>b.date.localeCompare(a.date));
+  const card = document.createElement('div');
+  card.className = 'unbooked-card';
+  card.innerHTML = `<div class="unbooked-title">⏳ 未入账账单（${unbooked.length} 笔）</div>`;
+
+  unbooked.forEach(b=>{
+    const cat = b.category2 ? `${b.category1} / ${esc(b.category2)}` : b.category1;
+    const item = document.createElement('div');
+    item.className = 'unbooked-item';
+    item.innerHTML = `
+      <div class="unbooked-info">
+        <div class="unbooked-cat">${cat}</div>
+        <div class="unbooked-meta">记录于 ${b.date}${b.notes ? ' · '+esc(b.notes) : ''}</div>
+      </div>
+      <div class="bill-amt" style="flex-shrink:0">${fmt(b.amount)}</div>
+      <div style="display:flex;gap:5px;flex-shrink:0">
+        <button class="btn btn-primary btn-xs" onclick="showBookModal('${b.id}')">入账</button>
+        <button class="btn btn-danger btn-xs" onclick="startDel('${b.id}')">删除</button>
+      </div>`;
+    card.appendChild(item);
+  });
+  el.innerHTML='';
+  el.appendChild(card);
+}
+
+let bookingId = null;
+function showBookModal(id){
+  const bill = bills.find(b=>b.id===id);
+  if(!bill) return;
+  bookingId = id;
+  const cat = bill.category2 ? `${bill.category1}/${bill.category2}` : bill.category1;
+  document.getElementById('modal-book-body').innerHTML =
+    `<p>将以 <strong>${todayStr()}</strong> 为入账日期记入。</p><br>
+     <p><strong>${esc(cat)}</strong>　${fmt(bill.amount)}</p>
+     ${bill.notes?`<p style="color:var(--text3);font-size:13px;margin-top:4px">${esc(bill.notes)}</p>`:''}`;
+  fillSourceSelect('book-source-sel','');
+  showModal('modal-book');
+}
+
+async function doBook(){
+  closeModal('modal-book');
+  if(!bookingId) return;
+  const bill = bills.find(b=>b.id===bookingId);
+  if(!bill) return;
+  const srcId = document.getElementById('book-source-sel').value;
+  const todayS = todayStr();
+  let finalSrcId = srcId||null, finalSrcName = null, balWarn = false;
+  if(finalSrcId){
+    const bal = balances.find(b=>b.id===finalSrcId);
+    finalSrcName = bal ? bal.name : null;
+    if(isAfterCalib(todayS)){
+      if(!bal || parseFloat(bal.amount)-parseFloat(bill.amount) < 0){
+        finalSrcId=null; finalSrcName=null; balWarn=true;
+      }
+    }
+  }
+  try{
+    await updateBill(bookingId,{
+      status:'regular', date:todayS,
+      source_id:finalSrcId, source_name:finalSrcName
+    });
+    if(finalSrcId && isAfterCalib(todayS)){
+      await adjustBalance(finalSrcId, -parseFloat(bill.amount));
+      await loadBalances();
+      if(curTab==='balance') renderBalance();
+    }
+    bookingId=null;
+    renderDetails();
+    if(balWarn) toast('⚠️ 余额不足，来源设为待定，已入账', 3000);
+    else toast('✅ 入账成功');
+  } catch(e){ toast('入账失败：'+e.message); }
+}
+
 function makeBillRow(bill){
   const div = document.createElement('div');
   div.className = 'bill-row';
@@ -1906,7 +2068,7 @@ function makeEditForm(bill){
     </div>
     <div class="form-group">
       <label class="form-lbl">金额</label>
-      <input type="number" class="form-input" id="ed-amt" value="${bill.amount}" inputmode="decimal" step="0.01" min="0">
+      <input type="number" class="form-input" id="ed-amt" value="${parseFloat(bill.amount).toFixed(2)}" inputmode="decimal" step="0.01" min="0">
     </div>
     <div class="form-group">
       <label class="form-lbl">备注</label>
@@ -2223,8 +2385,28 @@ async function doPayment(){
 // ════════════════════════════════════════
 //  BALANCE TAB
 // ════════════════════════════════════════
-const BAL_ICON = {wechat:'💚', alipay:'💙', bank:'🏦'};
-const BAL_BG   = {wechat:'#f0fff4', alipay:'#f0f8ff', bank:'#fffbe6'};
+const BAL_BG = {wechat:'#f0fff4', alipay:'#f0f8ff'};
+
+const BANK_MAP = [
+  {keys:['中行','中国银行'],  char:'中', bg:'#e53935'},
+  {keys:['农行','农业银行'],  char:'农', bg:'#43a047'},
+  {keys:['建行','建设银行'],  char:'建', bg:'#1e88e5'},
+  {keys:['工行','工商银行'],  char:'工', bg:'#ec407a'},
+];
+
+function getBankIconHtml(name){
+  const match = BANK_MAP.find(m=>m.keys.some(k=>name.includes(k)));
+  if(match) return `<div class="bank-badge" style="background:${match.bg}">${match.char}</div>`;
+  return `<div class="bal-icon" style="background:#fffbe6">🏦</div>`;
+}
+
+function getWxAlipayIconHtml(type){
+  if(type==='wechat')  return `<div class="bal-icon" style="background:#f0fff4">💚</div>`;
+  if(type==='alipay')  return `<div class="bal-icon" style="background:#f0f8ff">💙</div>`;
+  return `<div class="bal-icon" style="background:#f4f6fb">💳</div>`;
+}
+
+let isBooked = true; // entry form state
 
 function renderBalance(){
   renderBalList();
@@ -2238,12 +2420,26 @@ function renderBalance(){
 function renderBalList(){
   const el = document.getElementById('bal-list');
   el.innerHTML = '';
+  const totalAmt = balances.reduce((s,b)=>s+parseFloat(b.amount),0);
+  // Total row
+  const totalDiv = document.createElement('div');
+  totalDiv.className = 'bal-item';
+  totalDiv.style.cssText = 'border-bottom:2px solid var(--border);margin-bottom:4px;padding-bottom:14px';
+  totalDiv.innerHTML = `
+    <div class="bal-icon" style="background:var(--primary-light)">💰</div>
+    <div class="bal-info">
+      <div class="bal-name" style="font-size:15px">总余额</div>
+    </div>
+    <div class="bal-amt${totalAmt<0?' neg':''}" style="font-size:20px">${fmt(totalAmt)}</div>`;
+  el.appendChild(totalDiv);
+
   balances.forEach(b=>{
     const neg = parseFloat(b.amount) < 0;
+    const iconHtml = b.type==='bank' ? getBankIconHtml(b.name) : getWxAlipayIconHtml(b.type);
     const div = document.createElement('div');
     div.className = 'bal-item';
     div.innerHTML = `
-      <div class="bal-icon" style="background:${BAL_BG[b.type]||'#f4f6fb'}">${BAL_ICON[b.type]||'💳'}</div>
+      ${iconHtml}
       <div class="bal-info">
         <div class="bal-name">${esc(b.name)}</div>
         <div class="bal-type-lbl">${b.type==='wechat'?'微信':b.type==='alipay'?'支付宝':'银行卡'}</div>
@@ -2278,7 +2474,7 @@ function renderCalibInputs(){
     const div = document.createElement('div');
     div.className = 'calib-row';
     div.innerHTML = `
-      <span class="calib-name">${BAL_ICON[b.type]||'💳'} ${esc(b.name)}</span>
+      <span class="calib-name">${b.type==='wechat'?'💚':b.type==='alipay'?'💙':'🏦'} ${esc(b.name)}</span>
       <input type="number" class="calib-inp" id="calib-${b.id}" placeholder="0.00"
         value="${parseFloat(b.amount).toFixed(2)}" inputmode="decimal" step="0.01">`;
     el.appendChild(div);
@@ -2528,7 +2724,7 @@ async function init(){
 // Close modals on backdrop click (not edit modal to preserve user input)
 document.querySelectorAll('.modal-overlay').forEach(el=>{
   el.addEventListener('click', e=>{
-    if(e.target===el && el.id!=='modal-edit') el.classList.remove('show');
+    if(e.target===el && el.id!=='modal-edit' && el.id!=='modal-book') el.classList.remove('show');
   });
 });
 
