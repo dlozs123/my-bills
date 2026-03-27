@@ -631,19 +631,6 @@ input,select,textarea{font-family:inherit}
       <label class="form-lbl">备注 <span class="opt">(可为空)</span></label>
       <input type="text" class="form-input" id="e-notes" placeholder="可选备注…">
     </div>
-    <div class="form-group">
-      <label class="form-lbl">支付来源 <span class="opt">(不选为待定)</span></label>
-      <div class="sel-wrap">
-        <select class="form-select" id="e-source"></select>
-      </div>
-    </div>
-    <div class="form-group" id="e-booked-group">
-      <label class="form-lbl">入账状态</label>
-      <div class="booked-toggle">
-        <button class="booked-btn active" id="btn-booked" onclick="setBooked(true)">✅ 已入账</button>
-        <button class="booked-btn" id="btn-unbooked" onclick="setBooked(false)">⏳ 未入账</button>
-      </div>
-    </div>
     <button class="btn btn-primary" onclick="submitEntry()">💰 记入账本</button>
     <div class="budget-warn" id="entry-budget-warn" style="display:none"></div>
   </div>
@@ -689,7 +676,6 @@ input,select,textarea{font-family:inherit}
       </div>
     </div>
   </div>
-  <div id="det-unbooked"></div>
   <div id="det-list"></div>
   <div class="card" id="det-budget-card" style="display:none">
     <div class="card-title">💰 预算信息</div>
@@ -762,53 +748,14 @@ input,select,textarea{font-family:inherit}
 <!-- ══════════════ BALANCE ══════════════ -->
 <div class="tab-pane" id="tab-balance">
   <div class="card">
-    <div class="card-title">💰 当前余额</div>
+    <div class="card-title">💰 余额概览</div>
     <div id="bal-list"></div>
-  </div>
-  <div class="card">
-    <div class="card-title">🏦 银行卡管理</div>
-    <div class="cat2-add-row">
-      <input type="text" id="bank-name-input" placeholder="输入银行卡名称">
-      <button class="btn btn-primary btn-sm" onclick="doAddBank()">确定</button>
-    </div>
-    <div id="bank-del-list"></div>
   </div>
   <div class="card">
     <div class="card-title">🎯 余额校准</div>
     <div id="calib-inputs"></div>
+    <div id="calib-preview" style="display:none;margin-top:12px"></div>
     <button class="btn btn-primary" onclick="doCalibration()" style="margin-top:12px">确认校准</button>
-  </div>
-  <div class="card">
-    <div class="card-title">💵 存款</div>
-    <div class="form-group">
-      <label class="form-lbl">存入账户</label>
-      <div class="sel-wrap"><select class="form-select" id="dep-acct"></select></div>
-    </div>
-    <div class="form-group">
-      <label class="form-lbl">金额（元）</label>
-      <input type="number" class="form-input" id="dep-amt" placeholder="0.00" inputmode="decimal" step="0.01" min="0">
-    </div>
-    <button class="btn btn-success" onclick="doDeposit()">💵 确认存款</button>
-  </div>
-  <div class="card">
-    <div class="card-title">🏧 提现</div>
-    <div class="form-group">
-      <label class="form-lbl">提现账户（微信/支付宝）</label>
-      <div class="sel-wrap"><select class="form-select" id="wdraw-src"></select></div>
-    </div>
-    <div class="form-group">
-      <label class="form-lbl">收款银行卡</label>
-      <div class="sel-wrap"><select class="form-select" id="wdraw-bank"></select></div>
-    </div>
-    <div class="form-group">
-      <label class="form-lbl">提现金额（元）</label>
-      <input type="number" class="form-input" id="wdraw-amt" placeholder="0.00" inputmode="decimal" step="0.01" min="0">
-    </div>
-    <div class="form-group">
-      <label class="form-lbl">手续费（元）<span class="opt"> 可为0</span></label>
-      <input type="number" class="form-input" id="wdraw-fee" placeholder="0.00" inputmode="decimal" step="0.01" min="0" value="0">
-    </div>
-    <button class="btn btn-primary" onclick="doWithdrawal()">🏧 确认提现</button>
   </div>
   <div class="card">
     <div class="card-title">📝 校准记录</div>
@@ -865,33 +812,9 @@ input,select,textarea{font-family:inherit}
     <div class="modal-handle"></div>
     <div class="modal-title">💳 确认还款</div>
     <div class="modal-body" id="modal-pay-body"></div>
-    <div class="form-group" style="margin-bottom:14px">
-      <label class="form-lbl">还款银行卡</label>
-      <div class="sel-wrap">
-        <select class="form-select" id="pay-bank-select"></select>
-      </div>
-    </div>
     <div class="modal-acts">
       <button class="btn btn-success" onclick="doPayment()">确认还款</button>
       <button class="btn btn-secondary" onclick="closeModal('modal-pay')">取消</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-book">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title">✅ 确认入账</div>
-    <div class="modal-body" id="modal-book-body"></div>
-    <div class="form-group" style="margin-bottom:14px">
-      <label class="form-lbl">支付来源 <span class="opt">(不选为待定)</span></label>
-      <div class="sel-wrap">
-        <select class="form-select" id="book-source-sel"></select>
-      </div>
-    </div>
-    <div class="modal-acts">
-      <button class="btn btn-primary" onclick="doBook()">确认入账</button>
-      <button class="btn btn-secondary" onclick="closeModal('modal-book')">取消</button>
     </div>
   </div>
 </div>
@@ -1126,27 +1049,6 @@ function getCalibEffectiveFrom(){
 function isAfterCalib(dateStr){
   const from = getCalibEffectiveFrom();
   return from ? dateStr >= from : false;
-}
-
-async function adjustBalance(balanceId, delta){
-  const bal = balances.find(b=>b.id===balanceId);
-  if(!bal) return;
-  const newAmt = parseFloat(bal.amount) + delta;
-  const {error} = await db.from('balances').update({amount:newAmt}).eq('id',balanceId);
-  if(error) throw error;
-  bal.amount = newAmt;
-}
-
-function fillSourceSelect(selId, currentId){
-  const sel = document.getElementById(selId);
-  if(!sel) return;
-  sel.innerHTML = '<option value="">(待定)</option>';
-  balances.forEach(b=>{
-    const o = document.createElement('option');
-    o.value = b.id; o.textContent = b.name;
-    if(b.id===currentId) o.selected = true;
-    sel.appendChild(o);
-  });
 }
 
 // ════════════════════════════════════════
@@ -1580,32 +1482,16 @@ function renderBar(filtered){
 // ════════════════════════════════════════
 //  ENTRY TAB
 // ════════════════════════════════════════
-function setBooked(val){
-  isBooked = val;
-  document.getElementById('btn-booked').classList.toggle('active', val);
-  document.getElementById('btn-unbooked').classList.toggle('active', !val);
-  // Hide source when unbooked (source is always 待定)
-  document.getElementById('e-source').parentElement.parentElement.style.display = val ? '' : 'none';
-}
-
 function renderEntry(){
   document.getElementById('e-date').value = todayStr();
-  isBooked = true;
-  document.getElementById('btn-booked').classList.add('active');
-  document.getElementById('btn-unbooked').classList.remove('active');
-  document.getElementById('e-source').parentElement.parentElement.style.display = '';
   updateE2();
   updateMgmt();
-  fillSourceSelect('e-source', '');
-  // Populate budget setting
   if(budgetConfig && budgetConfig.monthly_budget > 0){
     document.getElementById('budget-input').value = budgetConfig.monthly_budget;
     const stats = calcBudget();
     if(stats){
-      const daysInMonth = stats.daysInMonth;
-      const installAmt  = stats.installAmt;
       document.getElementById('budget-cur-info').textContent =
-        `当前：${fmt(stats.mb)}/月　分期：${fmt(installAmt)}　餐饮日均预算约 ${fmt(stats.totalDiningBudget/daysInMonth)}`;
+        `当前：${fmt(stats.mb)}/月　分期：${fmt(stats.installAmt)}　餐饮日均预算约 ${fmt(stats.totalDiningBudget/stats.daysInMonth)}`;
     }
   } else {
     document.getElementById('budget-input').value = '';
@@ -1676,69 +1562,29 @@ async function submitEntry(){
   const cat2   = document.getElementById('e-cat2').value;
   const amount = parseFloat(document.getElementById('e-amount').value);
   const notes  = document.getElementById('e-notes').value.trim();
-  const srcId  = isBooked ? document.getElementById('e-source').value : '';
   if(!date){ toast('请选择日期'); return; }
   if(isNaN(amount)||amount<=0){ toast('请输入有效金额'); return; }
-
-  // ── 未入账：直接存 unbooked，不扣余额 ──
-  if(!isBooked){
-    try{
-      await insertBill({date, category1:cat1, category2:cat2||null, amount,
-        notes:notes||null, status:'unbooked', source_id:null, source_name:null});
-      document.getElementById('e-amount').value='';
-      document.getElementById('e-notes').value='';
-      toast('⏳ 已记入，待入账');
-      if(curTab==='details') renderDetails();
-    } catch(e){ toast('记入失败：'+e.message); }
-    return;
-  }
-
-  // ── 已入账：原逻辑 ──
-  let finalSrcId = srcId||null, finalSrcName = null, balWarn = false;
-  if(finalSrcId){
-    const bal = balances.find(b=>b.id===finalSrcId);
-    finalSrcName = bal ? bal.name : null;
-    if(isAfterCalib(date)){
-      if(!bal || parseFloat(bal.amount)-amount < 0){
-        finalSrcId=null; finalSrcName=null; balWarn=true;
-      }
-    }
-  }
-
   try{
     await insertBill({date, category1:cat1, category2:cat2||null, amount,
-      notes:notes||null, status:'regular',
-      source_id:finalSrcId||null, source_name:finalSrcName||null});
-
-    if(finalSrcId && isAfterCalib(date)){
-      await adjustBalance(finalSrcId, -amount);
-      if(curTab==='balance') renderBalance();
-    }
-
+      notes:notes||null, status:'regular'});
     document.getElementById('e-amount').value='';
     document.getElementById('e-notes').value='';
-    document.getElementById('e-source').value='';
-
-    if(balWarn){
-      toast('⚠️ 余额不足，来源已设为待定，请检查录入', 3500);
-    } else {
-      const curYM = toYM(new Date());
-      const warnEl = document.getElementById('entry-budget-warn');
-      warnEl.style.display='none';
-      if(date.startsWith(curYM)){
-        const stats = calcBudget();
-        if(stats && stats.mb > 0){
-          if(stats.isTotalOver){ toast('✅ 已记入'); }
-          else if(stats.isDiningOver){
-            const daily = stats.dailyRemainingDining;
-            const dailyStr = daily>=0 ? `每日可用 ${fmt(daily)}` : `每日已超 ${fmt(Math.abs(daily))}`;
-            warnEl.innerHTML=`⚠️ 餐饮预算已超标！<br>截至今日已超出 <strong>${fmt(stats.diningOverAmount)}</strong><br>本月剩余 ${stats.remainingDays} 天，${dailyStr}`;
-            warnEl.style.display='block';
-          } else { toast('✅ 记入成功！'); }
-          if(curTab==='entry') renderBudgetBar();
+    const curYM = toYM(new Date());
+    const warnEl = document.getElementById('entry-budget-warn');
+    warnEl.style.display='none';
+    if(date.startsWith(curYM)){
+      const stats = calcBudget();
+      if(stats && stats.mb > 0){
+        if(stats.isTotalOver){ toast('✅ 已记入'); }
+        else if(stats.isDiningOver){
+          const daily = stats.dailyRemainingDining;
+          const dailyStr = daily>=0 ? `每日可用 ${fmt(daily)}` : `每日已超 ${fmt(Math.abs(daily))}`;
+          warnEl.innerHTML=`⚠️ 餐饮预算已超标！<br>截至今日已超出 <strong>${fmt(stats.diningOverAmount)}</strong><br>本月剩余 ${stats.remainingDays} 天，${dailyStr}`;
+          warnEl.style.display='block';
         } else { toast('✅ 记入成功！'); }
+        if(curTab==='entry') renderBudgetBar();
       } else { toast('✅ 记入成功！'); }
-    }
+    } else { toast('✅ 记入成功！'); }
   } catch(e){ toast('记入失败：'+e.message); }
 }
 
@@ -1807,9 +1653,6 @@ function renderDetails(){
 
   // Render budget card for this month
   renderDetBudget();
-
-  // Render unbooked section (always shown regardless of month filter)
-  renderUnbooked();
 
   const yr = detMonth.getFullYear(), mo = detMonth.getMonth();
   let mbills = bills.filter(b=>{
@@ -1939,97 +1782,15 @@ function renderDetBudget(){
   content.innerHTML = html;
 }
 
-function renderUnbooked(){
-  const el = document.getElementById('det-unbooked');
-  const unbooked = bills.filter(b=>b.status==='unbooked');
-  if(unbooked.length===0){ el.innerHTML=''; return; }
-
-  unbooked.sort((a,b)=>b.date.localeCompare(a.date));
-  const card = document.createElement('div');
-  card.className = 'unbooked-card';
-  card.innerHTML = `<div class="unbooked-title">⏳ 未入账账单（${unbooked.length} 笔）</div>`;
-
-  unbooked.forEach(b=>{
-    const cat = b.category2 ? `${b.category1} / ${esc(b.category2)}` : b.category1;
-    const item = document.createElement('div');
-    item.className = 'unbooked-item';
-    item.innerHTML = `
-      <div class="unbooked-info">
-        <div class="unbooked-cat">${cat}</div>
-        <div class="unbooked-meta">记录于 ${b.date}${b.notes ? ' · '+esc(b.notes) : ''}</div>
-      </div>
-      <div class="bill-amt" style="flex-shrink:0">${fmt(b.amount)}</div>
-      <div style="display:flex;gap:5px;flex-shrink:0">
-        <button class="btn btn-primary btn-xs" onclick="showBookModal('${b.id}')">入账</button>
-        <button class="btn btn-danger btn-xs" onclick="startDel('${b.id}')">删除</button>
-      </div>`;
-    card.appendChild(item);
-  });
-  el.innerHTML='';
-  el.appendChild(card);
-}
-
-let bookingId = null;
-function showBookModal(id){
-  const bill = bills.find(b=>b.id===id);
-  if(!bill) return;
-  bookingId = id;
-  const cat = bill.category2 ? `${bill.category1}/${bill.category2}` : bill.category1;
-  document.getElementById('modal-book-body').innerHTML =
-    `<p>将以 <strong>${todayStr()}</strong> 为入账日期记入。</p><br>
-     <p><strong>${esc(cat)}</strong>　${fmt(bill.amount)}</p>
-     ${bill.notes?`<p style="color:var(--text3);font-size:13px;margin-top:4px">${esc(bill.notes)}</p>`:''}`;
-  fillSourceSelect('book-source-sel','');
-  showModal('modal-book');
-}
-
-async function doBook(){
-  closeModal('modal-book');
-  if(!bookingId) return;
-  const bill = bills.find(b=>b.id===bookingId);
-  if(!bill) return;
-  const srcId = document.getElementById('book-source-sel').value;
-  const todayS = todayStr();
-  let finalSrcId = srcId||null, finalSrcName = null, balWarn = false;
-  if(finalSrcId){
-    const bal = balances.find(b=>b.id===finalSrcId);
-    finalSrcName = bal ? bal.name : null;
-    if(isAfterCalib(todayS)){
-      if(!bal || parseFloat(bal.amount)-parseFloat(bill.amount) < 0){
-        finalSrcId=null; finalSrcName=null; balWarn=true;
-      }
-    }
-  }
-  try{
-    await updateBill(bookingId,{
-      status:'regular', date:todayS,
-      source_id:finalSrcId, source_name:finalSrcName
-    });
-    if(finalSrcId && isAfterCalib(todayS)){
-      await adjustBalance(finalSrcId, -parseFloat(bill.amount));
-      await loadBalances();
-      if(curTab==='balance') renderBalance();
-    }
-    bookingId=null;
-    renderDetails();
-    if(balWarn) toast('⚠️ 余额不足，来源设为待定，已入账', 3000);
-    else toast('✅ 入账成功');
-  } catch(e){ toast('入账失败：'+e.message); }
-}
-
 function makeBillRow(bill){
   const div = document.createElement('div');
   div.className = 'bill-row';
   const catTxt  = bill.category2 ? `${bill.category1} <span class="sub">/ ${esc(bill.category2)}</span>` : bill.category1;
   const noteHtml = bill.notes ? `<div class="bill-note">${esc(bill.notes)}</div>` : '';
-  const srcHtml  = bill.source_name
-    ? `<span class="bal-source-tag">${esc(bill.source_name)}</span>`
-    : `<span class="bal-source-tag pending">待定</span>`;
   div.innerHTML = `
     <div class="bill-info">
       <div class="bill-cat">${catTxt}</div>
       ${noteHtml}
-      ${srcHtml}
     </div>
     <div class="bill-amt">${fmt(bill.amount)}</div>
     <div class="bill-acts">
@@ -2044,11 +1805,6 @@ function makeEditForm(bill){
   div.className = 'edit-form';
   const cat2Opts = cat2For(bill.category1)
     .map(n=>`<option value="${esc(n)}" ${n===bill.category2?'selected':''}>${esc(n)}</option>`).join('');
-  const srcOpts = ['<option value="">(待定)</option>',
-    ...balances.map(b=>`<option value="${b.id}" ${b.id===bill.source_id?'selected':''}>${esc(b.name)}</option>`)
-  ].join('');
-  const beforeCalibNote = !isAfterCalib(bill.date)
-    ? ' <span class="opt">(校准日前，仅作记录)</span>' : '';
   div.innerHTML = `
     <div class="form-group">
       <label class="form-lbl">一级分类</label>
@@ -2073,12 +1829,6 @@ function makeEditForm(bill){
     <div class="form-group">
       <label class="form-lbl">备注</label>
       <input type="text" class="form-input" id="ed-notes" value="${esc(bill.notes||'')}">
-    </div>
-    <div class="form-group">
-      <label class="form-lbl">支付来源${beforeCalibNote}</label>
-      <div class="sel-wrap">
-        <select class="form-select" id="ed-source">${srcOpts}</select>
-      </div>
     </div>
     <div class="edit-acts">
       <button class="btn btn-primary" onclick="trySaveEdit('${bill.id}')">保存</button>
@@ -2109,9 +1859,7 @@ function trySaveEdit(id){
   const cat2   = document.getElementById('ed-cat2').value;
   const amount = parseFloat(document.getElementById('ed-amt').value);
   const notes  = document.getElementById('ed-notes').value.trim();
-  const srcId  = document.getElementById('ed-source').value;
   if(isNaN(amount)||amount<=0){ toast('请输入有效金额'); return; }
-
   const orig = editOrig;
   const changes = [];
   const origCat = orig.category2?`${orig.category1}/${orig.category2}`:orig.category1;
@@ -2120,15 +1868,8 @@ function trySaveEdit(id){
   if(parseFloat(amount)!==parseFloat(orig.amount)) changes.push(`金额：<strong>${fmt(orig.amount)}</strong> → <strong>${fmt(amount)}</strong>`);
   const on=orig.notes||'', nn=notes||'';
   if(on!==nn) changes.push(`备注：<strong>${esc(on)||'(无)'}</strong> → <strong>${esc(nn)||'(无)'}</strong>`);
-  const origSrcName = orig.source_name||'(待定)';
-  const newSrcBal   = srcId ? balances.find(b=>b.id===srcId) : null;
-  const newSrcName  = newSrcBal ? newSrcBal.name : '(待定)';
-  if((orig.source_id||'') !== srcId) changes.push(`来源：<strong>${esc(origSrcName)}</strong> → <strong>${esc(newSrcName)}</strong>`);
-
   if(changes.length===0){ toast('没有修改内容'); cancelEdit(); return; }
-
-  pendingEdit = {id, cat1, cat2:cat2||null, amount, notes:notes||null,
-    source_id:srcId||null, source_name:newSrcBal?newSrcBal.name:null};
+  pendingEdit = {id, cat1, cat2:cat2||null, amount, notes:notes||null};
   document.getElementById('modal-edit-body').innerHTML =
     `<p style="margin-bottom:10px;font-weight:700">本次修改的内容：</p>` +
     changes.map(c=>`<div class="change-row">• ${c}</div>`).join('') +
@@ -2139,37 +1880,9 @@ function trySaveEdit(id){
 async function doConfirmEdit(){
   closeModal('modal-edit');
   if(!pendingEdit) return;
-  const {id,cat1,cat2,amount,notes,source_id,source_name} = pendingEdit;
-  const orig = editOrig;
+  const {id,cat1,cat2,amount,notes} = pendingEdit;
   try{
-    // Balance adjustment for after-calib bills only
-    if(isAfterCalib(orig.date)){
-      const oldSrcId = orig.source_id;
-      const newSrcId = source_id;
-      const oldAmt   = parseFloat(orig.amount);
-      const newAmt   = parseFloat(amount);
-
-      // Reverse old deduction
-      if(oldSrcId) await adjustBalance(oldSrcId, +oldAmt);
-      // Apply new deduction — check sufficiency
-      if(newSrcId){
-        const bal = balances.find(b=>b.id===newSrcId);
-        if(bal && parseFloat(bal.amount)-newAmt < 0){
-          // Restore old deduction back and set source to pending
-          if(oldSrcId) await adjustBalance(oldSrcId, -oldAmt);
-          await updateBill(id,{category1:cat1,category2:cat2,amount,notes,source_id:null,source_name:null});
-          editingId=null; editOrig=null; pendingEdit=null;
-          await loadBalances();
-          renderDetails();
-          toast('⚠️ 余额不足，来源已设为待定，请检查录入', 3500);
-          return;
-        }
-        await adjustBalance(newSrcId, -newAmt);
-      }
-      await loadBalances();
-      if(curTab==='balance') renderBalance();
-    }
-    await updateBill(id,{category1:cat1,category2:cat2,amount,notes,source_id:source_id||null,source_name:source_name||null});
+    await updateBill(id,{category1:cat1,category2:cat2,amount,notes});
     editingId=null; editOrig=null; pendingEdit=null;
     renderDetails();
     toast('✅ 修改已保存');
@@ -2193,12 +1906,6 @@ async function doDelete(){
   closeModal('modal-del');
   if(!deletingId) return;
   try{
-    const bill = bills.find(b=>b.id===deletingId);
-    if(bill && bill.source_id && isAfterCalib(bill.date)){
-      await adjustBalance(bill.source_id, +parseFloat(bill.amount));
-      await loadBalances();
-      if(curTab==='balance') renderBalance();
-    }
     await deleteBill(deletingId);
     deletingId=null;
     if(editingId){ editingId=null; editOrig=null; }
@@ -2329,52 +2036,23 @@ function showPayConfirm(){
   if(extras.length>0) html+=`<p>➕ 额外消费：<strong>${extras.length} 笔，共 ${fmt(extraTotal)}</strong></p>`;
   html += `<br><p style="font-size:16px">合计：<strong>${fmt(total)}</strong></p>`;
   document.getElementById('modal-pay-body').innerHTML = html;
-
-  // Populate bank-card-only select
-  const sel = document.getElementById('pay-bank-select');
-  sel.innerHTML = '<option value="">(请选择银行卡)</option>';
-  balances.filter(b=>b.type==='bank').forEach(b=>{
-    const o = document.createElement('option');
-    o.value = b.id;
-    o.textContent = `${b.name}（${fmt(b.amount)}）`;
-    sel.appendChild(o);
-  });
   showModal('modal-pay');
 }
 
 async function doPayment(){
-  const bankId = document.getElementById('pay-bank-select').value;
-  if(!bankId){ toast('请选择还款银行卡'); return; }
-  const bankBal = balances.find(b=>b.id===bankId);
-  if(!bankBal){ toast('找不到该银行卡'); return; }
-
-  const pending = bills.filter(b=>b.status==='credit_pending');
-  const total   = pending.reduce((s,b)=>s+parseFloat(b.amount),0);
-
-  if(parseFloat(bankBal.amount) - total < 0){
-    toast(`❌ 还款失败：${bankBal.name} 余额不足（当前 ${fmt(bankBal.amount)}，需要 ${fmt(total)}）`, 3500);
-    closeModal('modal-pay');
-    return;
-  }
-
   closeModal('modal-pay');
+  const pending = bills.filter(b=>b.status==='credit_pending');
   const todayS  = todayStr();
   const hasInst = pending.some(b=>b.category2==='信用卡分期');
   try{
     const ids = pending.map(b=>b.id);
-    const {error} = await db.from('bills').update({
-      status:'regular', date:todayS,
-      source_id:bankId, source_name:bankBal.name
-    }).in('id',ids);
+    const {error} = await db.from('bills').update({status:'regular', date:todayS}).in('id',ids);
     if(error) throw error;
-
     if(hasInst && ccConfig && ccConfig.remaining_months>0){
       const nr = ccConfig.remaining_months-1;
       await db.from('credit_config').update({remaining_months:nr}).eq('id',ccConfig.id);
       ccConfig.remaining_months = nr;
     }
-    await adjustBalance(bankId, -total);
-    await loadBalances();
     await loadBills();
     renderCredit();
     if(curTab==='balance') renderBalance();
@@ -2400,46 +2078,67 @@ function getBankIconHtml(name){
   return `<div class="bal-icon" style="background:#fffbe6">🏦</div>`;
 }
 
-function getWxAlipayIconHtml(type){
-  if(type==='wechat')  return `<div class="bal-icon" style="background:#f0fff4">💚</div>`;
-  if(type==='alipay')  return `<div class="bal-icon" style="background:#f0f8ff">💙</div>`;
-  return `<div class="bal-icon" style="background:#f4f6fb">💳</div>`;
+function getBalIconHtml(b){
+  if(b.type==='wechat') return `<div class="bal-icon" style="background:#f0fff4">💚</div>`;
+  if(b.type==='alipay') return `<div class="bal-icon" style="background:#f0f8ff">💙</div>`;
+  return getBankIconHtml(b.name);
 }
 
-let isBooked = true; // entry form state
+// Estimated remaining = calibrated total - all regular bills after calibration effective date
+function calcEstimatedRemaining(){
+  const from = getCalibEffectiveFrom();
+  if(!from) return null;
+  const calibTotal = balances.reduce((s,b)=>s+parseFloat(b.amount),0);
+  const spent = bills.filter(b=>b.status==='regular' && b.date>=from)
+    .reduce((s,b)=>s+parseFloat(b.amount),0);
+  return calibTotal - spent;
+}
 
 function renderBalance(){
   renderBalList();
-  renderBankDelList();
   renderCalibInputs();
   renderCalibRecords();
-  fillDepAcct();
-  fillWdrawSelects();
 }
 
 function renderBalList(){
   const el = document.getElementById('bal-list');
   el.innerHTML = '';
-  const totalAmt = balances.reduce((s,b)=>s+parseFloat(b.amount),0);
-  // Total row
+  const calibTotal = balances.reduce((s,b)=>s+parseFloat(b.amount),0);
+  const estimated  = calcEstimatedRemaining();
+
+  // Estimated remaining row (shown first if calibration exists)
+  if(estimated !== null){
+    const estDiv = document.createElement('div');
+    estDiv.className = 'bal-item';
+    estDiv.style.cssText = 'border-bottom:2px solid var(--border);margin-bottom:4px;padding-bottom:14px';
+    const neg = estimated < 0;
+    estDiv.innerHTML = `
+      <div class="bal-icon" style="background:${neg?'#fff0f0':'#f0fff4'}">${neg?'📉':'📈'}</div>
+      <div class="bal-info">
+        <div class="bal-name" style="font-size:15px">预计剩余</div>
+        <div class="bal-type-lbl">校准总额 ${fmt(calibTotal)} - 校准后消费</div>
+      </div>
+      <div class="bal-amt${neg?' neg':''}" style="font-size:20px;font-weight:800">${fmt(estimated)}</div>`;
+    el.appendChild(estDiv);
+  }
+
+  // Total calibrated balance
   const totalDiv = document.createElement('div');
   totalDiv.className = 'bal-item';
-  totalDiv.style.cssText = 'border-bottom:2px solid var(--border);margin-bottom:4px;padding-bottom:14px';
+  totalDiv.style.cssText = 'border-bottom:1px solid var(--bg)';
   totalDiv.innerHTML = `
     <div class="bal-icon" style="background:var(--primary-light)">💰</div>
-    <div class="bal-info">
-      <div class="bal-name" style="font-size:15px">总余额</div>
-    </div>
-    <div class="bal-amt${totalAmt<0?' neg':''}" style="font-size:20px">${fmt(totalAmt)}</div>`;
+    <div class="bal-info"><div class="bal-name">校准总余额</div></div>
+    <div class="bal-amt">${fmt(calibTotal)}</div>`;
   el.appendChild(totalDiv);
 
+  // Individual accounts
   balances.forEach(b=>{
     const neg = parseFloat(b.amount) < 0;
-    const iconHtml = b.type==='bank' ? getBankIconHtml(b.name) : getWxAlipayIconHtml(b.type);
     const div = document.createElement('div');
     div.className = 'bal-item';
     div.innerHTML = `
-      ${iconHtml}
+      ${getBalIconHtml(b)}
       <div class="bal-info">
         <div class="bal-name">${esc(b.name)}</div>
         <div class="bal-type-lbl">${b.type==='wechat'?'微信':b.type==='alipay'?'支付宝':'银行卡'}</div>
@@ -2449,36 +2148,91 @@ function renderBalList(){
   });
 }
 
-function renderBankDelList(){
-  const el = document.getElementById('bank-del-list');
-  const banks = balances.filter(b=>b.type==='bank');
-  if(banks.length===0){ el.innerHTML='<div style="font-size:13px;color:var(--text3);padding:8px 0">暂无银行卡</div>'; return; }
-  el.innerHTML = '';
-  banks.forEach(b=>{
-    if(parseFloat(b.amount)!==0) return; // only allow deleting zero-balance
-    const div = document.createElement('div');
-    div.className = 'calib-row';
-    div.innerHTML = `<span class="calib-name">${esc(b.name)} <span style="color:var(--text3);font-size:12px">（余额为0，可删除）</span></span>
-      <button class="btn btn-danger btn-xs" onclick="doDeleteBank('${b.id}')">删除</button>`;
-    el.appendChild(div);
-  });
-  if(el.innerHTML===''){
-    el.innerHTML='<div style="font-size:13px;color:var(--text3);padding:8px 0">余额不为0的银行卡不可删除</div>';
-  }
-}
-
 function renderCalibInputs(){
   const el = document.getElementById('calib-inputs');
   el.innerHTML = '';
+
+  // Show predicted vs actual hint
+  const from = getCalibEffectiveFrom();
+  if(from && calibrations.length > 0){
+    const predicted = calcEstimatedRemaining();
+    const hintDiv = document.createElement('div');
+    hintDiv.style.cssText = 'font-size:13px;color:var(--text2);background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:12px;line-height:1.7';
+    hintDiv.innerHTML = `上次校准后预计剩余：<strong style="color:${predicted<0?'var(--danger)':'var(--primary)'}">${fmt(predicted)}</strong><br>
+      <span style="color:var(--text3)">请在下方填入各账户实际余额，系统将显示偏差</span>`;
+    el.appendChild(hintDiv);
+  }
+
   balances.forEach(b=>{
     const div = document.createElement('div');
     div.className = 'calib-row';
     div.innerHTML = `
       <span class="calib-name">${b.type==='wechat'?'💚':b.type==='alipay'?'💙':'🏦'} ${esc(b.name)}</span>
       <input type="number" class="calib-inp" id="calib-${b.id}" placeholder="0.00"
-        value="${parseFloat(b.amount).toFixed(2)}" inputmode="decimal" step="0.01">`;
+        value="${parseFloat(b.amount).toFixed(2)}" inputmode="decimal" step="0.01"
+        oninput="updateCalibPreview()">`;
     el.appendChild(div);
   });
+  updateCalibPreview();
+}
+
+function updateCalibPreview(){
+  const previewEl = document.getElementById('calib-preview');
+  if(!previewEl) return;
+  const predicted = calcEstimatedRemaining();
+  let newTotal = 0;
+  let valid = true;
+  balances.forEach(b=>{
+    const inp = document.getElementById('calib-'+b.id);
+    if(!inp){ valid=false; return; }
+    const v = parseFloat(inp.value);
+    if(isNaN(v)){ valid=false; return; }
+    newTotal += v;
+  });
+  if(!valid || predicted === null){ previewEl.style.display='none'; return; }
+  const diff = newTotal - predicted;
+  const absDiff = Math.abs(diff);
+  const diffColor = Math.abs(diff) < 0.01 ? 'var(--success)' : diff > 0 ? 'var(--primary)' : 'var(--danger)';
+  const diffText  = Math.abs(diff) < 0.01 ? '✅ 和预计完全一致' :
+    diff > 0 ? `比预计多 ${fmt(absDiff)}` : `比预计少 ${fmt(absDiff)}`;
+  previewEl.style.display = 'block';
+  previewEl.innerHTML = `
+    <div style="background:var(--bg);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.8">
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--text3)">预计剩余</span><strong>${fmt(predicted)}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--text3)">本次校准总额</span><strong>${fmt(newTotal)}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);margin-top:4px;padding-top:4px">
+        <span style="color:var(--text3)">偏差</span>
+        <strong style="color:${diffColor}">${diffText}</strong>
+      </div>
+    </div>`;
+}
+
+async function doCalibration(){
+  const snaps = balances.map(b=>{
+    const inp = document.getElementById('calib-'+b.id);
+    const after = inp ? parseFloat(inp.value)||0 : parseFloat(b.amount);
+    return {id:b.id, name:b.name, before:parseFloat(b.amount), after};
+  });
+  const changed = snaps.filter(s=>s.before!==s.after);
+  if(changed.length===0){ toast('余额无变化，无需校准'); return; }
+  try{
+    for(const s of snaps){
+      await db.from('balances').update({amount:s.after}).eq('id',s.id);
+      const bal = balances.find(b=>b.id===s.id);
+      if(bal) bal.amount = s.after;
+    }
+    const {data,error} = await db.from('calibrations').insert({
+      calibration_date: todayStr(),
+      snapshots: JSON.stringify(snaps)
+    }).select().single();
+    if(!error && data) calibrations.unshift(data);
+    renderBalance();
+    toast('✅ 校准完成');
+  } catch(e){ toast('校准失败：'+e.message); }
 }
 
 function renderCalibRecords(){
@@ -2491,8 +2245,6 @@ function renderCalibRecords(){
   calibrations.forEach((c, idx)=>{
     let snaps = [];
     try{ snaps = JSON.parse(c.snapshots); } catch(e){}
-
-    // Compute Beijing time and effective-from for this record
     const utcMs  = new Date(c.created_at).getTime();
     const bjDate = new Date(utcMs + 8*60*60*1000);
     const bjH    = bjDate.getUTCHours();
@@ -2509,8 +2261,7 @@ function renderCalibRecords(){
     const isLatest = idx === 0;
     const effLabel = isLatest
       ? `<span style="color:var(--primary);font-weight:700">${effectiveFrom} 起生效中</span>`
-      : `<span style="color:var(--text3)">${effectiveFrom} 起生效（已被覆盖）</span>`;
-
+      : `<span style="color:var(--text3)">${effectiveFrom} 起（已被覆盖）</span>`;
     const div = document.createElement('div');
     div.className = 'calib-rec';
     div.innerHTML = `
@@ -2540,134 +2291,12 @@ function toggleCalibRec(id){
   tog.textContent = open ? '收起' : '展开';
 }
 
-function fillDepAcct(){
-  const sel = document.getElementById('dep-acct');
-  if(!sel) return;
-  sel.innerHTML = '';
-  balances.forEach(b=>{
-    const o = document.createElement('option');
-    o.value = b.id; o.textContent = `${b.name}（${fmt(b.amount)}）`;
-    sel.appendChild(o);
-  });
-}
-
-function fillWdrawSelects(){
-  const src  = document.getElementById('wdraw-src');
-  const bank = document.getElementById('wdraw-bank');
-  if(!src||!bank) return;
-  src.innerHTML='';
-  balances.filter(b=>b.type!=='bank').forEach(b=>{
-    const o = document.createElement('option');
-    o.value = b.id; o.textContent = `${b.name}（${fmt(b.amount)}）`;
-    src.appendChild(o);
-  });
-  bank.innerHTML='';
-  balances.filter(b=>b.type==='bank').forEach(b=>{
-    const o = document.createElement('option');
-    o.value = b.id; o.textContent = `${b.name}（${fmt(b.amount)}）`;
-    bank.appendChild(o);
-  });
-}
-
-async function doAddBank(){
-  const name = document.getElementById('bank-name-input').value.trim();
-  if(!name){ toast('请输入银行卡名称'); return; }
-  if(balances.find(b=>b.name===name)){ toast('已存在同名账户'); return; }
-  const maxOrder = balances.reduce((m,b)=>Math.max(m,b.sort_order||0),0);
-  const {data,error} = await db.from('balances').insert({
-    name, type:'bank', amount:0, sort_order:maxOrder+1
-  }).select().single();
-  if(error){ toast('添加失败'); return; }
-  balances.push(data);
-  document.getElementById('bank-name-input').value='';
-  renderBalance();
-  fillSourceSelect('e-source','');
-  toast('✅ 银行卡已添加');
-}
-
-async function doDeleteBank(id){
-  const bal = balances.find(b=>b.id===id);
-  if(!bal||parseFloat(bal.amount)!==0){ toast('余额不为0，不可删除'); return; }
-  const {error} = await db.from('balances').delete().eq('id',id);
-  if(error){ toast('删除失败'); return; }
-  balances = balances.filter(b=>b.id!==id);
-  renderBalance();
-  fillSourceSelect('e-source','');
-  toast('已删除');
-}
-
-async function doCalibration(){
-  const snaps = balances.map(b=>{
-    const inp = document.getElementById('calib-'+b.id);
-    const after = inp ? parseFloat(inp.value)||0 : parseFloat(b.amount);
-    return {id:b.id, name:b.name, before:parseFloat(b.amount), after};
-  });
-  const changed = snaps.filter(s=>s.before!==s.after);
-  if(changed.length===0){ toast('余额无变化，无需校准'); return; }
-
-  try{
-    // Update each balance
-    for(const s of snaps){
-      await db.from('balances').update({amount:s.after}).eq('id',s.id);
-      const bal = balances.find(b=>b.id===s.id);
-      if(bal) bal.amount = s.after;
-    }
-    // Save calibration record
-    const {data,error} = await db.from('calibrations').insert({
-      calibration_date: todayStr(),
-      snapshots: JSON.stringify(snaps)
-    }).select().single();
-    if(!error && data) calibrations.unshift(data);
-
-    renderBalance();
-    fillSourceSelect('e-source','');
-    toast('✅ 校准完成');
-  } catch(e){ toast('校准失败：'+e.message); }
-}
-
 async function doDelCalibRec(id){
   const {error} = await db.from('calibrations').delete().eq('id',id);
   if(error){ toast('删除失败'); return; }
   calibrations = calibrations.filter(c=>c.id!==id);
   renderCalibRecords();
   toast('已删除校准记录');
-}
-
-async function doDeposit(){
-  const acctId = document.getElementById('dep-acct').value;
-  const amount = parseFloat(document.getElementById('dep-amt').value);
-  if(!acctId){ toast('请选择存入账户'); return; }
-  if(isNaN(amount)||amount<=0){ toast('请输入有效金额'); return; }
-  try{
-    await adjustBalance(acctId, +amount);
-    await loadBalances();
-    document.getElementById('dep-amt').value='';
-    renderBalance();
-    toast('✅ 存款成功');
-  } catch(e){ toast('操作失败'); }
-}
-
-async function doWithdrawal(){
-  const srcId  = document.getElementById('wdraw-src').value;
-  const bankId = document.getElementById('wdraw-bank').value;
-  const amount = parseFloat(document.getElementById('wdraw-amt').value);
-  const fee    = parseFloat(document.getElementById('wdraw-fee').value)||0;
-  if(!srcId||!bankId){ toast('请选择账户'); return; }
-  if(isNaN(amount)||amount<=0){ toast('请输入有效金额'); return; }
-  const src  = balances.find(b=>b.id===srcId);
-  const bank = balances.find(b=>b.id===bankId);
-  if(!src||!bank){ toast('账户不存在'); return; }
-  const total = amount + fee;
-  if(parseFloat(src.amount) - total < 0){ toast(`${src.name} 余额不足`); return; }
-  try{
-    await adjustBalance(srcId,  -(amount+fee));
-    await adjustBalance(bankId, +amount);
-    await loadBalances();
-    document.getElementById('wdraw-amt').value='';
-    document.getElementById('wdraw-fee').value='0';
-    renderBalance();
-    toast(`✅ 提现成功：${src.name} → ${bank.name} ${fmt(amount)}${fee>0?`（手续费 ${fmt(fee)}）`:''}`);
-  } catch(e){ toast('操作失败'); }
 }
 
 // ════════════════════════════════════════
@@ -2724,7 +2353,7 @@ async function init(){
 // Close modals on backdrop click (not edit modal to preserve user input)
 document.querySelectorAll('.modal-overlay').forEach(el=>{
   el.addEventListener('click', e=>{
-    if(e.target===el && el.id!=='modal-edit' && el.id!=='modal-book') el.classList.remove('show');
+    if(e.target===el && el.id!=='modal-edit') el.classList.remove('show');
   });
 });
 
