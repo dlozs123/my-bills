@@ -917,7 +917,11 @@ let curTab = 'overview';
 // ════════════════════════════════════════
 //  UTILS
 // ════════════════════════════════════════
-const todayStr = () => new Date().toISOString().split('T')[0];
+// 始终返回北京时间（UTC+8）的日期字符串 YYYY-MM-DD
+function todayStr(){
+  const bj = new Date(Date.now() + 8*60*60*1000);
+  return bj.toISOString().split('T')[0];
+}
 
 function fmt(n){ return '¥' + parseFloat(n||0).toFixed(2); }
 
@@ -1020,28 +1024,26 @@ async function loadBalances(){
 
 async function loadCalibrations(){
   const {data,error} = await db.from('calibrations').select('*')
-    .order('calibration_date',{ascending:false});
+    .order('calibration_date',{ascending:false})
+    .order('created_at',{ascending:false});
   if(error){ console.error(error); return; }
   calibrations = data||[];
 }
 
-// 根据校准记录的 created_at（UTC），换算北京时间（UTC+8）
-// 北京时间 08:00 之前校准 → 当天账单参与扣减（effectiveFrom = calibration_date）
-// 北京时间 08:00 及之后校准 → 次日起才扣减（effectiveFrom = calibration_date + 1天）
+// 北京时间 08:00 之前校准 → 当天账单参与扣减（effectiveFrom = 校准的北京日期）
+// 北京时间 08:00 及之后校准 → 次日起才扣减
 function getCalibEffectiveFrom(){
   if(!calibrations.length) return null;
   const c = calibrations[0];
-  // created_at 是 UTC timestamptz，转北京时间
   const utcMs  = new Date(c.created_at).getTime();
-  const bjDate = new Date(utcMs + 8*60*60*1000); // +8h
-  const bjHour = bjDate.getUTCHours(); // 在偏移后的 UTC 等同于北京时
+  const bjDate = new Date(utcMs + 8*60*60*1000);
+  // 从 created_at 反推北京日期，避免 calibration_date 列存的是 UTC 日期的问题
+  const bjDateStr = bjDate.toISOString().split('T')[0];
+  const bjHour = bjDate.getUTCHours();
   if(bjHour < 8){
-    // 08:00 前校准：当天（calibration_date）就生效
-    return c.calibration_date;
+    return bjDateStr;
   } else {
-    // 08:00 后校准：次日起生效
-    const next = new Date(c.calibration_date + 'T00:00:00');
-    next.setDate(next.getDate() + 1);
+    const next = new Date(bjDate.getTime() + 24*60*60*1000);
     return next.toISOString().split('T')[0];
   }
 }
@@ -2249,13 +2251,14 @@ function renderCalibRecords(){
     const bjDate = new Date(utcMs + 8*60*60*1000);
     const bjH    = bjDate.getUTCHours();
     const bjM    = bjDate.getUTCMinutes();
-    const bjTimeStr = `${String(bjH).padStart(2,'0')}:${String(bjM).padStart(2,'0')}`;
+    const bjTimeStr  = `${String(bjH).padStart(2,'0')}:${String(bjM).padStart(2,'0')}`;
+    // 从 created_at 反推北京日期（而非 calibration_date，因为后者可能是 UTC 日期）
+    const bjDateStr  = bjDate.toISOString().split('T')[0];
     let effectiveFrom;
     if(bjH < 8){
-      effectiveFrom = c.calibration_date;
+      effectiveFrom = bjDateStr;
     } else {
-      const next = new Date(c.calibration_date+'T00:00:00');
-      next.setDate(next.getDate()+1);
+      const next = new Date(bjDate.getTime() + 24*60*60*1000);
       effectiveFrom = next.toISOString().split('T')[0];
     }
     const isLatest = idx === 0;
@@ -2266,7 +2269,7 @@ function renderCalibRecords(){
     div.className = 'calib-rec';
     div.innerHTML = `
       <div class="calib-rec-hd" onclick="toggleCalibRec('${c.id}')">
-        <span class="calib-rec-date">📅 ${c.calibration_date} <span style="font-size:12px;color:var(--text3);font-weight:600">北京时间 ${bjTimeStr}</span></span>
+        <span class="calib-rec-date">📅 ${bjDateStr} <span style="font-size:12px;color:var(--text3);font-weight:600">北京时间 ${bjTimeStr}</span></span>
         <span class="calib-toggle" id="ctog-${c.id}">展开</span>
       </div>
       <div class="calib-rec-body" id="cbody-${c.id}">
