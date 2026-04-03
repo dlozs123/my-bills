@@ -8,6 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 /* ===== RESET ===== */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -520,6 +521,33 @@ input,select,textarea{font-family:inherit}
   .bottom-nav{max-width:490px;left:50%;transform:translateX(-50%)}
   .modal-overlay{padding-bottom:0}
 }
+/* ===== REPORT ===== */
+.rep-card{background:#fff;border-radius:16px;padding:24px 20px;color:var(--text);font-family:'Nunito','PingFang SC',sans-serif;box-shadow:0 8px 30px rgba(91,141,238,0.15)}
+.rep-hd{text-align:center;margin-bottom:24px}
+.rep-hd h2{font-size:20px;font-weight:900;letter-spacing:1px;margin-bottom:6px;color:var(--primary-dark)}
+.rep-hd p{font-size:13px;color:var(--text3);font-weight:600}
+.rep-sec{margin-bottom:20px}
+.rep-sec-title{font-size:14px;font-weight:800;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.rep-sec-title::before{content:'';display:block;width:4px;height:14px;background:var(--primary);border-radius:2px}
+.rep-ov-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.rep-ov-box{background:var(--bg);border-radius:12px;padding:12px 14px;text-align:center}
+.rep-ov-lbl{font-size:12px;color:var(--text3);font-weight:700;margin-bottom:4px}
+.rep-ov-val{font-size:18px;font-weight:900;color:var(--text)}
+.rep-ov-val.green{color:var(--success)}
+.rep-ov-val.red{color:var(--danger)}
+.rep-cat1-row{margin-bottom:10px}
+.rep-cat1-lbl{display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:4px}
+.rep-cat1-bar-bg{height:8px;background:var(--bg);border-radius:4px;overflow:hidden}
+.rep-cat1-bar{height:100%;border-radius:4px}
+.rep-cat2-list{display:flex;flex-wrap:wrap;gap:8px}
+.rep-cat2-tag{background:var(--primary-light);color:var(--primary);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px}
+.rep-hl-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px dashed var(--border)}
+.rep-hl-lbl{font-size:13px;font-weight:700;color:var(--text2)}
+.rep-hl-val{font-size:14px;font-weight:800;text-align:right}
+.rep-hl-sub{font-size:11px;color:var(--text3);display:block;margin-top:2px}
+.rep-trend{display:flex;align-items:flex-end;height:40px;gap:2px;margin-top:8px}
+.rep-trend-bar{flex:1;background:var(--primary-light);border-radius:2px 2px 0 0;min-height:2px}
+.rep-ft{text-align:center;font-size:11px;color:var(--text3);margin-top:30px;font-weight:600;opacity:0.6}
 </style>
 </head>
 <body>
@@ -681,6 +709,7 @@ input,select,textarea{font-family:inherit}
     <div class="card-title">💰 预算信息</div>
     <div id="det-budget-content"></div>
   </div>
+  <button class="btn btn-primary" onclick="openReportModal()" style="margin-top:12px; width:100%; box-shadow:0 4px 12px rgba(91,141,238,0.2)">📄 生成月度账单报告</button>
 </div>
 
 <!-- ══════════════ CREDIT CARD ══════════════ -->
@@ -783,6 +812,25 @@ input,select,textarea{font-family:inherit}
 </div>
 
 <!-- ══════════════ MODALS ══════════════ -->
+<div class="modal-overlay" id="modal-report">
+  <div class="modal-sheet" style="max-height:85vh; display:flex; flex-direction:column; padding:20px 20px 0">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📄 账单报告生成器</div>
+    <div class="month-jump" style="margin-bottom:16px; justify-content:flex-start">
+      <input type="number" id="rep-year" placeholder="年" style="width:70px"> <span>年</span>
+      <input type="number" id="rep-month" placeholder="月" style="width:50px"> <span>月</span>
+      <button class="btn btn-primary btn-sm" onclick="generateReport()">预览并生成</button>
+    </div>
+    <div id="report-scroll-area" style="flex:1; overflow-y:auto; padding-bottom:20px; display:none">
+      <div id="report-out"></div>
+    </div>
+    <div class="modal-acts" id="report-acts" style="display:none; padding:16px 0 calc(16px + env(safe-area-inset-bottom,0)); border-top:1.5px solid var(--border); background:white;">
+      <button class="btn btn-success" onclick="exportReportImg()" id="btn-export-img">💾 存为长图</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-report')">关闭</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-edit">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
@@ -906,8 +954,8 @@ const CAT_BG    = {'餐饮':'#fff0f0','购物':'#ebfbee','充值':'#e7f5ff','其
 let bills = [], cats = [], ccConfig = null;
 let budgetConfig = null, budgetHistory = [];
 let balances = [], calibrations = [];
-let ovPeriod = 'month', ovDate = new Date();
-let detMonth = new Date();
+let ovPeriod = 'month', ovDate = getNow();
+let detMonth = getNow();
 let detFilter = {cat1:'', cat2:''}; // '' = 全部
 let editingId = null, editOrig = null, pendingEdit = null;
 let deletingId = null;
@@ -917,9 +965,21 @@ let curTab = 'overview';
 // ════════════════════════════════════════
 //  UTILS
 // ════════════════════════════════════════
+// 获取当前生效的本地时间 Date 对象（8:00 前算作上一天）
+function getNow() {
+  const d = new Date();
+  if (d.getHours() < 8) {
+    d.setDate(d.getDate() - 1);
+  }
+  return d;
+}
+
 // 始终返回北京时间（UTC+8）的日期字符串 YYYY-MM-DD
 function todayStr(){
   const bj = new Date(Date.now() + 8*60*60*1000);
+  if (bj.getUTCHours() < 8) {
+    bj.setUTCDate(bj.getUTCDate() - 1);
+  }
   return bj.toISOString().split('T')[0];
 }
 
@@ -1024,8 +1084,7 @@ async function loadBalances(){
 
 async function loadCalibrations(){
   const {data,error} = await db.from('calibrations').select('*')
-    .order('calibration_date',{ascending:false})
-    .order('created_at',{ascending:false});
+    .order('calibration_date',{ascending:false});
   if(error){ console.error(error); return; }
   calibrations = data||[];
 }
@@ -1060,7 +1119,7 @@ function isAfterCalib(dateStr){
 // Calculate live budget stats for the current month
 function calcBudget(){
   if(!budgetConfig || !budgetConfig.monthly_budget || budgetConfig.monthly_budget <= 0) return null;
-  const now = new Date();
+  const now = getNow();
   const curYM = toYM(now);
   const today = now.getDate();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
@@ -1123,7 +1182,7 @@ async function saveMonthStats(ym){
 // Check if month-start processing is needed (runs on each app open)
 async function checkMonthlyReset(){
   if(!budgetConfig) return;
-  const curYM = toYM(new Date());
+  const curYM = toYM(getNow());
   if(budgetConfig.last_processed_month === curYM) return;
 
   const prev = budgetConfig.last_processed_month;
@@ -1151,7 +1210,7 @@ async function checkAutoInstallment(){
   if(!ccConfig) return;
   if(!ccConfig.monthly_amount || ccConfig.monthly_amount <= 0) return;
   if(!ccConfig.remaining_months || ccConfig.remaining_months <= 0) return;
-  const now = new Date();
+  const now = getNow();
   if(now.getDate() < 18) return;
   const curYM = toYM(now);
   if(ccConfig.last_billed_month === curYM) return;
@@ -1250,7 +1309,7 @@ function switchTab(tab){
 // ════════════════════════════════════════
 function setPeriod(p){
   ovPeriod = p;
-  ovDate = new Date();
+  ovDate = getNow();
   document.querySelectorAll('.seg-btn').forEach(b=>b.classList.toggle('active',b.dataset.p===p));
   renderOverview();
 }
@@ -1372,7 +1431,7 @@ function renderBudgetBar(){
 
   // Determine which month we're viewing
   const viewYM = toYM(ovDate);
-  const curYM  = toYM(new Date());
+  const curYM  = toYM(getNow());
   let stats = null;
 
   if(viewYM === curYM){
@@ -1571,7 +1630,7 @@ async function submitEntry(){
       notes:notes||null, status:'regular'});
     document.getElementById('e-amount').value='';
     document.getElementById('e-notes').value='';
-    const curYM = toYM(new Date());
+    const curYM = toYM(getNow());
     const warnEl = document.getElementById('entry-budget-warn');
     warnEl.style.display='none';
     if(date.startsWith(curYM)){
@@ -1715,7 +1774,7 @@ function renderDetBudget(){
   const card    = document.getElementById('det-budget-card');
   const content = document.getElementById('det-budget-content');
   const viewYM  = toYM(detMonth);
-  const curYM   = toYM(new Date());
+  const curYM   = toYM(getNow());
 
   let stats = null;
   if(viewYM === curYM){
@@ -1749,7 +1808,7 @@ function renderDetBudget(){
   }
   card.style.display = 'block';
 
-  const now = new Date();
+  const now = getNow();
   const isCur = viewYM === curYM;
   const todayDay = now.getDate();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
@@ -1937,7 +1996,7 @@ function renderCredit(){
   if(ccConfig){
     document.getElementById('cc-monthly').value = ccConfig.monthly_amount||'';
     document.getElementById('cc-remain').value  = ccConfig.remaining_months||'';
-    const now = new Date();
+    const now = getNow();
     const day = now.getDate();
     const infoEl = document.getElementById('cc-info');
     if(ccConfig.remaining_months>0 && ccConfig.monthly_amount>0){
@@ -2303,6 +2362,258 @@ async function doDelCalibRec(id){
 }
 
 // ════════════════════════════════════════
+//  MONTHLY REPORT EXPORT
+// ════════════════════════════════════════
+function openReportModal(){
+  document.getElementById('rep-year').value = detMonth.getFullYear();
+  document.getElementById('rep-month').value = detMonth.getMonth() + 1;
+  document.getElementById('report-scroll-area').style.display = 'none';
+  document.getElementById('report-acts').style.display = 'none';
+  showModal('modal-report');
+}
+
+function generateReport(){
+  const y = parseInt(document.getElementById('rep-year').value);
+  const m = parseInt(document.getElementById('rep-month').value);
+  if(isNaN(y) || isNaN(m) || m<1 || m>12){ toast('请输入有效的年月'); return; }
+  
+  const viewYM = `${y}-${String(m).padStart(2,'0')}`;
+  let repBills = bills.filter(b => b.status === 'regular' && b.date.startsWith(viewYM));
+  
+  if(repBills.length === 0){
+    toast('该月份没有消费记录');
+    return;
+  }
+  
+  // 1. Overview Stats
+  const totalExp = repBills.reduce((s,b)=>s+parseFloat(b.amount), 0);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const dailyAvg = totalExp / daysInMonth;
+  const totalItems = repBills.length;
+  
+  let budget = 0;
+  let budgetDesc = '暂无预算记录';
+  let diffAmt = 0;
+  let diffClass = '';
+  // Check budget history first
+  const hist = budgetHistory.find(h=>h.year_month === viewYM);
+  if(hist && parseFloat(hist.monthly_budget) > 0){
+    budget = parseFloat(hist.monthly_budget);
+  } else if(budgetConfig && budgetConfig.monthly_budget > 0 && toYM(getNow()) === viewYM){
+    budget = parseFloat(budgetConfig.monthly_budget);
+  }
+  
+  if(budget > 0){
+    diffAmt = budget - totalExp;
+    budgetDesc = `月预算 ${fmt(budget)}`;
+    diffClass = diffAmt >= 0 ? 'green' : 'red';
+  }
+  
+  // 2. Category Flow (Cat 1)
+  const ct1 = {};
+  repBills.forEach(b => { ct1[b.category1] = (ct1[b.category1]||0) + parseFloat(b.amount) });
+  const cat1Arr = Object.entries(ct1).sort((a,b)=>b[1]-a[1]);
+  
+  // 3. Category Flow (Cat 2)
+  const ct2 = {};
+  repBills.forEach(b => { 
+    if(b.category2) {
+      const g = `${b.category1}/${b.category2}`;
+      ct2[g] = (ct2[g]||0) + parseFloat(b.amount);
+    }
+  });
+  const cat2Arr = Object.entries(ct2).sort((a,b)=>b[1]-a[1]);
+  
+  // 4. Highlights
+  let maxSingle = repBills[0];
+  let maxDining = null;
+  repBills.forEach(b => {
+    if(parseFloat(b.amount) > parseFloat(maxSingle.amount)) maxSingle = b;
+    if(b.category1 === '餐饮'){
+      if(!maxDining || parseFloat(b.amount) > parseFloat(maxDining.amount)) maxDining = b;
+    }
+  });
+  
+  // group by day
+  const dt = {};
+  repBills.forEach(b => { dt[b.date] = (dt[b.date]||0) + parseFloat(b.amount) });
+  let maxDate = '';
+  let maxDateAmt = 0;
+  for(const d in dt){
+    if(dt[d] > maxDateAmt){ maxDateAmt = dt[d]; maxDate = d; }
+  }
+  
+  // Monthly daily trend array
+  const trendArr = [];
+  let highestDailyForTrend = maxDateAmt || 1; 
+  for(let i=1; i<=daysInMonth; i++){
+    const dStr = `${viewYM}-${String(i).padStart(2,'0')}`;
+    trendArr.push(dt[dStr] || 0);
+  }
+  
+  // Build HTML
+  let diffHtml = '';
+  if(budget > 0){
+    diffHtml = `
+      <div class="rep-ov-box">
+        <div class="rep-ov-lbl">${diffAmt >= 0 ? '最终结余' : '超支额度'}</div>
+        <div class="rep-ov-val ${diffClass}">${diffAmt >= 0 ? '+' : '-'}${fmt(Math.abs(diffAmt))}</div>
+      </div>
+    `;
+  }
+  
+  const cat1Html = cat1Arr.map(([c, amt]) => {
+    const pct = (amt / totalExp * 100).toFixed(1);
+    const color = CAT_COLOR[c] || 'var(--primary)';
+    return `
+      <div class="rep-cat1-row">
+        <div class="rep-cat1-lbl"><span>${CAT_EMOJI[c]||''} ${c}</span> <span>${fmt(amt)} (${pct}%)</span></div>
+        <div class="rep-cat1-bar-bg"><div class="rep-cat1-bar" style="width:${pct}%;background:${color}"></div></div>
+      </div>
+    `;
+  }).join('');
+  
+  let cat2Html = '';
+  if(cat2Arr.length > 0){
+    cat2Html = `
+    <div class="rep-sec">
+      <div class="rep-sec-title">二级分类明细</div>
+      <div class="rep-cat2-list">
+        ${cat2Arr.map(([k, amt]) => {
+           const [c1, c2] = k.split('/');
+           return `<span class="rep-cat2-tag"><span>${c2}</span> <span style="color:var(--text);font-weight:800">${fmt(amt)}</span></span>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+  
+  const trendHtml = `
+    <div class="rep-sec">
+      <div class="rep-sec-title">消费趋势</div>
+      <div class="rep-trend">
+        ${trendArr.map(amt => {
+          const h = (amt / highestDailyForTrend * 100);
+          const style = amt === 0 ? 'height:2px;opacity:0.3' : `height:${Math.max(4, h)}%;background:${amt===maxDateAmt?'var(--danger)':'var(--primary-light)'}`;
+          return `<div class="rep-trend-bar" style="${style}"></div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:4px">
+        <span>1日</span><span>${daysInMonth}日</span>
+      </div>
+    </div>
+  `;
+  
+  let highlightsHtml = '';
+  highlightsHtml += `
+    <div class="rep-hl-row">
+      <div class="rep-hl-lbl">🔥 单笔最大</div>
+      <div class="rep-hl-val">${fmt(maxSingle.amount)}<span class="rep-hl-sub">${maxSingle.category2||maxSingle.category1} ${maxSingle.notes ? '· '+esc(maxSingle.notes) : ''}</span></div>
+    </div>
+  `;
+  highlightsHtml += `
+    <div class="rep-hl-row">
+      <div class="rep-hl-lbl">📅 最高消费日</div>
+      <div class="rep-hl-val">${maxDate.split('-')[1]}月${maxDate.split('-')[2]}日<span class="rep-hl-sub">当日共支出 ${fmt(maxDateAmt)}</span></div>
+    </div>
+  `;
+  if(maxDining){
+    highlightsHtml += `
+      <div class="rep-hl-row">
+        <div class="rep-hl-lbl">🍔 餐饮刺客</div>
+        <div class="rep-hl-val">${fmt(maxDining.amount)}<span class="rep-hl-sub">${maxDining.date.substring(5)} ${maxDining.notes ? '· '+esc(maxDining.notes) : ''}</span></div>
+      </div>
+    `;
+  }
+  
+  const html = `
+    <div class="rep-card" id="rep-card-content">
+      <div class="rep-hd">
+        <h2>${y}年${m}月 账单报告</h2>
+        <p>汇聚本月每一笔收支</p>
+      </div>
+      
+      <div class="rep-ov-grid">
+        <div class="rep-ov-box" style="${budget===0?'grid-column:1/3':''}">
+          <div class="rep-ov-lbl">总支出</div>
+          <div class="rep-ov-val">${fmt(totalExp)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">${budgetDesc} · 计 ${totalItems} 笔</div>
+        </div>
+        ${diffHtml}
+      </div>
+      
+      <p style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:20px;font-weight:700">📌 日均花销 ${fmt(dailyAvg)}</p>
+      
+      <div class="rep-sec">
+        <div class="rep-sec-title">资金流向</div>
+        ${cat1Html}
+      </div>
+      
+      ${cat2Html}
+      
+      <div class="rep-sec">
+        <div class="rep-sec-title">花销之最</div>
+        ${highlightsHtml}
+      </div>
+      
+      ${trendHtml}
+      
+      <div class="rep-ft">
+        Generated by 记账本
+      </div>
+    </div>
+  `;
+  
+  document.getElementById('report-out').innerHTML = html;
+  document.getElementById('report-scroll-area').style.display = 'block';
+  document.getElementById('report-acts').style.display = 'flex';
+}
+
+function exportReportImg(){
+  const node = document.getElementById('rep-card-content');
+  if(!node) return;
+  const btn = document.getElementById('btn-export-img');
+  const oldText = btn.textContent;
+  btn.textContent = '正在生成...';
+  btn.disabled = true;
+  
+  if(typeof html2canvas === 'undefined'){
+    toast('图片生成库加载失败，请刷新重试');
+    btn.textContent = oldText;
+    btn.disabled = false;
+    return;
+  }
+  
+  setTimeout(()=>{
+    html2canvas(node, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#f4f6fb' 
+    }).then(canvas => {
+      const imgData = canvas.toDataURL('image/png');
+      const y = document.getElementById('rep-year').value;
+      const m = document.getElementById('rep-month').value;
+      const filename = `${y}年${m}月账单报告.png`;
+      
+      const a = document.createElement('a');
+      a.href = imgData;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      btn.textContent = oldText;
+      btn.disabled = false;
+      toast('✅ 账单一图流已保存');
+    }).catch(err => {
+      console.error(err);
+      toast('生成图片失败');
+      btn.textContent = oldText;
+      btn.disabled = false;
+    });
+  }, 100);
+}
+
+// ════════════════════════════════════════
 //  REALTIME
 // ════════════════════════════════════════
 function setupRealtime(){
@@ -2346,8 +2657,8 @@ async function init(){
   } catch(e){ console.error('Init error:',e); }
   finally{ document.getElementById('loading-screen').style.display='none'; }
 
-  ovDate = new Date();
-  detMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  ovDate = getNow();
+  detMonth = new Date(getNow().getFullYear(), getNow().getMonth(), 1);
   detFilter = {cat1:'', cat2:''};
   setPeriod('month');
   renderOverview();
